@@ -33,11 +33,31 @@ public final class BoatEngineEvents {
         if (!(event.getTarget() instanceof Boat boat)) return;
         if (event.getHand() != InteractionHand.MAIN_HAND) return;
         ItemStack held = event.getEntity().getItemInHand(event.getHand());
-        if (held.isEmpty()) return;
         CompoundTag data = boat.getPersistentData();
+        if (held.isEmpty()) {
+            // Sneak + empty hand on an installed motor toggles its ignition.
+            // Normal right-click remains available for entering the boat.
+            if (!event.getEntity().isShiftKeyDown() || !data.getBoolean(ROOT + "Installed")) return;
+            if (!boat.level().isClientSide) {
+                boolean enabled = !data.getBoolean(ROOT + "Enabled");
+                if (enabled && data.getInt(ROOT + "Fuel") <= 0) {
+                    levelSound(boat, BoatismSounds.BOAT_ENGINE_START_FAIL.get());
+                    event.getEntity().displayClientMessage(Component.literal("Add fuel before starting the engine"), true);
+                } else {
+                    data.putBoolean(ROOT + "Enabled", enabled);
+                    if (!enabled) data.putBoolean(ROOT + "Running", false);
+                    event.getEntity().displayClientMessage(Component.literal(enabled ? "Boat engine switched on" : "Boat engine switched off"), true);
+                    if (!enabled) levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
+                }
+            }
+            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
+            event.setCanceled(true);
+            return;
+        }
         if (held.is(BoatismItems.BASE_ENGINE.get()) && !data.getBoolean(ROOT + "Installed")) {
             if (!boat.level().isClientSide) {
                 data.putBoolean(ROOT + "Installed", true);
+                data.putBoolean(ROOT + "Enabled", false);
                 data.putInt(ROOT + "Fuel", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
                 if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
@@ -105,7 +125,8 @@ public final class BoatEngineEvents {
                 }
                 continue;
             }
-            boolean running = !boat.getPassengers().isEmpty() && boat.isInWater();
+            boolean running = data.getBoolean(ROOT + "Enabled")
+                && !boat.getPassengers().isEmpty() && boat.isInWater();
             boolean wasRunning = data.getBoolean(ROOT + "Running");
             if (running != wasRunning) {
                 data.putBoolean(ROOT + "Running", running);
@@ -128,6 +149,7 @@ public final class BoatEngineEvents {
             data.putInt(ROOT + "Fuel", data.getInt(ROOT + "Fuel") - 1);
             if (data.getInt(ROOT + "Fuel") == 0) {
                 data.putBoolean(ROOT + "Running", false);
+                data.putBoolean(ROOT + "Enabled", false);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
             }
         }
