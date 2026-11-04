@@ -57,8 +57,7 @@ public final class BoatEngineClientControl {
     private static void changePower(Boat boat, int delta) {
         CompoundTag state = ClientReceiver.get(boat.getId());
         if (state == null || !state.getBoolean("Running")) return;
-        int limit = state.getFloat("Fuel") < (state.getBoolean("Canister") || state.getBoolean("StrappedCanister") ? 1300f : 200f)
-            ? 3 : 9;
+        int limit = state.getFloat("Fuel") < 600f ? 3 : 9;
         int oldPower = state.getInt("Power");
         int newPower = Mth.clamp(oldPower + Integer.signum(delta), 0, limit);
         if (newPower == oldPower) return;
@@ -139,8 +138,8 @@ public final class BoatEngineClientControl {
             double propX = boat.getX() + propZ * sin;
             double propWorldZ = boat.getZ() + propZ * cos;
             double propY = boat.getY() + attachmentY - 4.0 / 16.0 * 1.5;
-            if (mc.level.random.nextInt(2) == 0) {
-                int bubbles = 1 + Math.min(3, power / 3);
+            if (mc.level.random.nextInt(5) != 0) {
+                int bubbles = 2 + Math.min(4, power / 2);
                 for (int i = 0; i < bubbles; i++) {
                     double dx = (mc.level.random.nextDouble() - 0.5) * 0.28;
                     double dz = (mc.level.random.nextDouble() - 0.5) * 0.28;
@@ -155,7 +154,7 @@ public final class BoatEngineClientControl {
                     }
                 }
             }
-            if (mc.level.random.nextInt(4) == 0) {
+            if (mc.level.random.nextInt(3) == 0) {
                 mc.level.addParticle(ParticleTypes.SPLASH,
                     propX + (mc.level.random.nextDouble() - 0.5) * 0.35,
                     boat.getY() + 0.09,

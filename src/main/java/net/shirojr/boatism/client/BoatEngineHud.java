@@ -13,12 +13,12 @@ import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
 import net.shirojr.boatism.network.ClientReceiver;
 
-/** Minimal, always-on speed and fuel readout above the vanilla hotbar. */
+/** Small always-on gear/fuel HUD beside the hotbar while running. */
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE,
     value = Dist.CLIENT)
 public final class BoatEngineHud {
-    private static final int WIDTH = 142;
-    private static final int HEIGHT = 35;
+    private static final int WIDTH = 108;
+    private static final int HEIGHT = 30;
 
     private BoatEngineHud() {}
 
@@ -33,39 +33,40 @@ public final class BoatEngineHud {
         CompoundTag data = ClientReceiver.get(boat.getId());
         if (data == null || !data.getBoolean("Installed") || !data.getBoolean("Running")) return;
 
-        // 1 block is approximately 1 metre: 20 ticks/sec * 3.6 -> km/h.
-        // This is an approximate in-game speed, not a physical boat speedometer.
-        double speed = boat.getDeltaMovement().horizontalDistance() * 72.0;
-        int capacity = data.getBoolean("Canister") || data.getBoolean("StrappedCanister")
-            ? 6500 : 1000;
-        float fuel = Mth.clamp(data.getFloat("Fuel"), 0f, (float) capacity);
+        int gear = Mth.clamp(data.getInt("Power"), 0, 9);
+        int capacity = 3000;
+        float fuel = Mth.clamp(data.getFloat("Fuel"), 0f, capacity);
         float fuelFraction = fuel / capacity;
-        int speedColor = speedTint(speed);
+        int gearColor = gearTint(gear);
         int fuelColor = fuelFraction > 0.4f ? 0xFF87CF9E
             : fuelFraction > 0.17f ? 0xFFFFCA7A : 0xFFFF7572;
 
         GuiGraphics gui = event.getGuiGraphics();
-        int left = (gui.guiWidth() - WIDTH) / 2;
-        int top = gui.guiHeight() - 83;
-        gui.fill(left, top, left + WIDTH, top + HEIGHT, 0xC5151D22);
-        gui.fill(left, top, left + 2, top + HEIGHT, speedColor);
-        gui.fill(left + 6, top + 20, left + WIDTH - 6, top + 21, 0x665E6A6C);
+        // The normal hotbar spans centre +/- 91 px.
+        // Put the HUD just outside its right edge where screen space allows.
+        int requestedLeft = gui.guiWidth() / 2 + 97;
+        int left = Math.min(gui.guiWidth() - WIDTH - 3, requestedLeft);
+        int top = left == requestedLeft ? gui.guiHeight() - 35 : gui.guiHeight() - 71;
+        gui.fill(left, top, left + WIDTH, top + HEIGHT, 0xCB151D22);
+        gui.fill(left, top, left + 2, top + HEIGHT, gearColor);
 
-        gui.drawString(mc.font, "SPEED", left + 9, top + 6, 0xFFBCC9CC, false);
-        String speedText = String.format(java.util.Locale.ROOT, "%.1f km/h", speed);
-        gui.drawString(mc.font, speedText,
-            left + WIDTH - 9 - mc.font.width(speedText), top + 6, speedColor, false);
+        gui.drawString(mc.font, "GEAR", left + 8, top + 5, 0xFFBCC9CC, false);
+        String gearText = Integer.toString(gear);
+        gui.drawString(mc.font, gearText,
+            left + WIDTH - 8 - mc.font.width(gearText), top + 5, gearColor, false);
 
-        gui.drawString(mc.font, "FUEL", left + 9, top + 23, 0xFFBCC9CC, false);
-        String fuelText = (int) Math.ceil(fuel) + " / " + capacity;
+        gui.drawString(mc.font, "FUEL", left + 8, top + 16, 0xFFBCC9CC, false);
+        String fuelText = (int) Math.ceil(fuel) + "/" + capacity;
         gui.drawString(mc.font, fuelText,
-            left + WIDTH - 9 - mc.font.width(fuelText), top + 23, fuelColor, false);
-        gui.fill(left + 8, top + HEIGHT - 2,
-            left + 8 + Math.round((WIDTH - 16) * fuelFraction), top + HEIGHT - 1, fuelColor);
+            left + WIDTH - 6 - mc.font.width(fuelText), top + 16, fuelColor, false);
+        gui.fill(left + 6, top + HEIGHT - 3, left + WIDTH - 6, top + HEIGHT - 2,
+            0x665E6A6C);
+        gui.fill(left + 6, top + HEIGHT - 3,
+            left + 6 + Math.round((WIDTH - 12) * fuelFraction), top + HEIGHT - 2, fuelColor);
     }
 
-    private static int speedTint(double kmh) {
-        float ratio = Mth.clamp((float) (kmh / 48.0), 0.0f, 1.0f);
+    private static int gearTint(int gear) {
+        float ratio = gear / 9f;
         if (ratio < 0.5f) return blend(0xFF77D7D1, 0xFFF6D074, ratio * 2f);
         return blend(0xFFF6D074, 0xFFFF746C, (ratio - 0.5f) * 2f);
     }

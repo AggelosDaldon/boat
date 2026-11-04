@@ -4,20 +4,16 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
 import net.shirojr.boatism.network.ClientReceiver;
-import net.shirojr.boatism.registry.BoatismItems;
 
 /**
  * World-space renderer using the custom Blockbench engine's exact face UVs.
@@ -63,32 +59,15 @@ public final class BoatEngineWorldRenderer {
             // The uploaded Blockbench model is 16-pixel item geometry. Use
             // its original per-face UVs at the same stern attachment point.
             pose.scale(1.5f, 1.5f, 1.5f);
-            float propellerAngle = state.getBoolean("Running") && state.getInt("Power") > 0
-                ? (boat.tickCount + partial) * (0.08f + state.getInt("Power") * 0.04f) : 0f;
+            // Keep the propeller turning at neutral, with a slow idle RPM.
+            float propellerAngle = state.getBoolean("Running")
+                ? (boat.tickCount + partial) * (0.12f + state.getInt("Power") * 0.055f) : 0f;
             BoatEngineGeometry.get().render(pose,
                 buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), propellerAngle);
 
-            // The strapped canister is a render-only appearance for the
-            // regular canister installed on the engine.
-            if (state.getBoolean("StrappedCanister") || state.getBoolean("Canister")) {
-                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_CANISTER_STRAPPED.get()),
-                    0.48f, 0.83, 90f, 180f, boat.getId());
-            }
             pose.popPose();
         }
         buffers.endBatch();
     }
 
-    private static void drawUpgrade(Minecraft mc, PoseStack pose, MultiBufferSource.BufferSource buffers,
-                                    ItemStack stack, float scale, double yOffset,
-                                    float xDegrees, float yDegrees, int seed) {
-        pose.pushPose();
-        pose.scale(scale, scale, scale);
-        pose.translate(0.0, yOffset, 0.0);
-        pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(xDegrees));
-        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(yDegrees));
-        mc.getItemRenderer().renderStatic(stack, ItemDisplayContext.FIXED,
-            0xF000F0, OverlayTexture.NO_OVERLAY, pose, buffers, mc.level, seed);
-        pose.popPose();
-    }
 }

@@ -67,7 +67,7 @@ public final class EngineSync {
     private static CompoundTag snapshot(Boat boat) {
         CompoundTag original = boat.getPersistentData();
         CompoundTag state = new CompoundTag();
-        for (String suffix : new String[]{"Installed", "Running", "Canister", "StrappedCanister"}) {
+        for (String suffix : new String[]{"Installed", "Running"}) {
             state.putBoolean(suffix, original.getBoolean(ROOT + suffix));
         }
         state.putFloat("Fuel", original.getFloat(ROOT + "Fuel"));

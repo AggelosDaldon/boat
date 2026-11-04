@@ -15,6 +15,8 @@ import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
+import java.util.Map;
+import java.util.WeakHashMap;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -30,17 +32,15 @@ import net.shirojr.boatism.registry.BoatismSounds;
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class BoatEngineEvents {
     public static final String ROOT = "BoatismForgeEngine";
-    private static final int BASE_FUEL_CAPACITY = 1000;
-    private static final int CANISTER_FUEL_BONUS = 5500;
+    // One full Fuel Bucket moves an engine about 5,000 horizontal blocks.
+    private static final int BASE_FUEL_CAPACITY = 3000;
     private static final float FUEL_BUCKET_CONTENTS = 3000f;
+    private static final float FUEL_PER_BLOCK = FUEL_BUCKET_CONTENTS / 5000f;
+    private static final Map<Boat, Vec3> PREVIOUS_POSITIONS = new WeakHashMap<>();
     private BoatEngineEvents() {}
 
-    private static boolean hasCanister(CompoundTag data) {
-        return data.getBoolean(ROOT + "Canister") || data.getBoolean(ROOT + "StrappedCanister");
-    }
-
     public static int fuelCapacity(CompoundTag data) {
-        return BASE_FUEL_CAPACITY + (hasCanister(data) ? CANISTER_FUEL_BONUS : 0);
+        return BASE_FUEL_CAPACITY;
     }
 
     private static void levelSound(Boat boat, SoundEvent sound) {
@@ -138,23 +138,6 @@ public final class BoatEngineEvents {
             return;
         }
 
-        if (!data.getBoolean(ROOT + "Installed")) return;
-        // The only user-installable upgrade is the regular Fuel Canister.
-        // Its strapped version is a render-only installed appearance.
-        if (!held.is(BoatismItems.COMPONENT_CANISTER.get())) return;
-        if (!boat.level().isClientSide) {
-            if (hasCanister(data)) {
-                event.getEntity().displayClientMessage(Component.literal("Fuel Canister already installed"), true);
-            } else {
-                data.putBoolean(ROOT + "Canister", true);
-                data.putBoolean(ROOT + "StrappedCanister", true);
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
-                if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-                event.getEntity().displayClientMessage(Component.literal("Fuel capacity: " + fuelCapacity(data)), true);
-            }
-        }
-        event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-        event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -168,6 +151,8 @@ public final class BoatEngineEvents {
             data.remove(ROOT + "Heat");
             data.remove(ROOT + "Exhaust");
             data.remove(ROOT + "Plates");
+            data.remove(ROOT + "Canister");
+            data.remove(ROOT + "StrappedCanister");
             float fuel = Math.min(data.getFloat(ROOT + "Fuel"), fuelCapacity(data));
             if (fuel != data.getFloat(ROOT + "Fuel")) data.putFloat(ROOT + "Fuel", fuel);
 
@@ -180,6 +165,7 @@ public final class BoatEngineEvents {
             }
             if (!running) {
                 data.putInt(ROOT + "Power", 0);
+                PREVIOUS_POSITIONS.remove(boat);
                 continue;
             }
 
@@ -208,7 +194,14 @@ public final class BoatEngineEvents {
                 boat.hurtMarked = true;
             }
 
-            float cost = hasCanister(data) ? 1.2f : 1.0f;
+            // Charge only for actual horizontal distance, not time spent idling.
+            // Ignore the first position and abnormal jumps (teleport/dimension).
+            Vec3 currentPosition = boat.position();
+            Vec3 previousPosition = PREVIOUS_POSITIONS.put(boat, currentPosition);
+            double blocks = previousPosition == null ? 0.0
+                : Math.hypot(currentPosition.x - previousPosition.x,
+                    currentPosition.z - previousPosition.z);
+            float cost = blocks <= 8.0 ? (float) blocks * FUEL_PER_BLOCK : 0f;
             float remaining = Math.max(0.0f, fuel - cost);
             data.putFloat(ROOT + "Fuel", remaining);
             if (remaining <= fuelCapacity(data) * 0.2f && !data.getBoolean(ROOT + "LowFuelWarned")) {

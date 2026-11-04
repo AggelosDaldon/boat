@@ -141,7 +141,7 @@ public final class BoatEngineGeometry {
                     }
                     float[][] orderedUv = new float[4][2];
                     for (int i = 0; i < 4; i++) {
-                        orderedUv[i] = faceUvs[Math.floorMod(i + uvRotations, 4)];
+                        orderedUv[i] = faceUvs[Math.floorMod(i - uvRotations, 4)];
                     }
                     faces.add(new Quad(positions, orderedUv, normals[faceId],
                         propellerIndices.contains(elementIndex)));

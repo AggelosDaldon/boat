@@ -15,8 +15,6 @@ public final class BoatismItems {
     public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(net.minecraft.core.registries.Registries.CREATIVE_MODE_TAB, Boatism.MOD_ID);
     public static final RegistryObject<Item> FUEL_BUCKET = ITEMS.register("fuel_bucket", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> BASE_ENGINE = ITEMS.register("base_engine", () -> new Item(new Item.Properties().stacksTo(1).fireResistant()));
-    public static final RegistryObject<Item> COMPONENT_CANISTER = ITEMS.register("component_canister", () -> new Item(new Item.Properties().stacksTo(1)));
-    public static final RegistryObject<Item> COMPONENT_CANISTER_STRAPPED = ITEMS.register("component_canister_strapped", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<CreativeModeTab> BOATISM_TAB = TABS.register("boatism", () ->
         CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.boatism"))
@@ -24,7 +22,6 @@ public final class BoatismItems {
             .displayItems((params, output) -> {
                 output.accept(FUEL_BUCKET.get());
                 output.accept(BASE_ENGINE.get());
-                output.accept(COMPONENT_CANISTER.get());
             }).build());
     private BoatismItems() {}
 }
