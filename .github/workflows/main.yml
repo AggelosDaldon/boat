@@ -3,7 +3,7 @@ name: Forge 1.20.1 build
 on:
   workflow_dispatch:
   push:
-    branches: [main, forge-1.20.1-stage14]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -31,6 +31,7 @@ jobs:
           test -n "$JAR_PATH"
           jar tf "$JAR_PATH" | grep -qx 'pack.mcmeta'
           jar tf "$JAR_PATH" | grep -qx 'META-INF/mods.toml'
+          jar tf "$JAR_PATH" | grep -qx 'LICENSE_boatism'
           echo "Verified pack.mcmeta and mods.toml in $JAR_PATH"
       - name: Upload compiled JAR
         if: success()
