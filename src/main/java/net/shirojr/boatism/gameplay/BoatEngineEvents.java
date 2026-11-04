@@ -2,6 +2,7 @@ package net.shirojr.boatism.gameplay;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
@@ -61,7 +62,7 @@ public final class BoatEngineEvents {
                 data.putInt(ROOT + "Fuel", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
                 if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-                event.getEntity().displayClientMessage(Component.literal("Boat engine installed"), true);
+                event.getEntity().displayClientMessage(Component.literal("Engine installed! Fuel it, then sneak-right-click with an empty hand to turn it on."), true);
             }
             event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
             event.setCanceled(true);
@@ -101,6 +102,19 @@ public final class BoatEngineEvents {
         }
     }
 
+    private static void displayStatus(Boat boat, CompoundTag data, boolean running) {
+        String mode = running ? "RUNNING"
+            : data.getInt(ROOT + "Fuel") <= 0 ? "NO FUEL"
+            : data.getBoolean(ROOT + "Enabled") ? "READY" : "OFF";
+        int fuelPercent = Math.round(100.0f * data.getInt(ROOT + "Fuel") / fuelCapacity(data));
+        double blocksPerSecond = Math.round(boat.getDeltaMovement().horizontalDistance() * 200.0) / 10.0;
+        Component text = Component.literal("Motor: " + mode + "  |  Fuel: " + fuelPercent
+            + "%  |  Speed: " + blocksPerSecond + " blocks/s");
+        for (Entity rider : boat.getPassengers()) {
+            if (rider instanceof ServerPlayer player) player.displayClientMessage(text, true);
+        }
+    }
+
     private static int fuelCapacity(CompoundTag data) {
         if (data.getBoolean(ROOT + "StrappedCanister")) return 48000;
         if (data.getBoolean(ROOT + "Canister")) return 36000;
@@ -123,16 +137,24 @@ public final class BoatEngineEvents {
                     data.putBoolean(ROOT + "Running", false);
                     levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
                 }
+                if (level.getGameTime() % 20 == 0) displayStatus(boat, data, false);
                 continue;
             }
+            Boat.Status status = boat.getStatus();
+            boolean inWater = status == Boat.Status.IN_WATER
+                || status == Boat.Status.UNDER_WATER
+                || status == Boat.Status.UNDER_FLOWING_WATER;
             boolean running = data.getBoolean(ROOT + "Enabled")
-                && !boat.getPassengers().isEmpty() && boat.isInWater();
+                && !boat.getPassengers().isEmpty() && inWater;
             boolean wasRunning = data.getBoolean(ROOT + "Running");
             if (running != wasRunning) {
                 data.putBoolean(ROOT + "Running", running);
                 levelSound(boat, running ? BoatismSounds.BOAT_ENGINE_START.get() : BoatismSounds.BOAT_ENGINE_STOP.get());
             }
-            if (!running) continue;
+            if (!running) {
+                if (level.getGameTime() % 20 == 0) displayStatus(boat, data, false);
+                continue;
+            }
             if (level.getGameTime() % 35 == 0) levelSound(boat, BoatismSounds.BOAT_ENGINE_DEFAULT.get());
             if (data.getInt(ROOT + "Fuel") <= 200 && !data.getBoolean(ROOT + "LowFuelWarned")) {
                 data.putBoolean(ROOT + "LowFuelWarned", true);
@@ -140,13 +162,14 @@ public final class BoatEngineEvents {
             }
             Vec3 velocity = boat.getDeltaMovement();
             Vec3 heading = boat.getLookAngle();
-            double acceleration = data.getBoolean(ROOT + "Exhaust") ? 0.021 : 0.018;
-            double maxSpeed = data.getBoolean(ROOT + "Exhaust") ? 0.48 : 0.38;
+            double acceleration = data.getBoolean(ROOT + "Exhaust") ? 0.055 : 0.045;
+            double maxSpeed = data.getBoolean(ROOT + "Exhaust") ? 0.72 : 0.60;
             Vec3 horizontal = new Vec3(velocity.x + heading.x * acceleration, 0, velocity.z + heading.z * acceleration);
             if (horizontal.horizontalDistanceSqr() > maxSpeed * maxSpeed) horizontal = horizontal.normalize().scale(maxSpeed);
             boat.setDeltaMovement(horizontal.x, velocity.y, horizontal.z);
             boat.hurtMarked = true;
             data.putInt(ROOT + "Fuel", data.getInt(ROOT + "Fuel") - 1);
+            if (level.getGameTime() % 20 == 0) displayStatus(boat, data, true);
             if (data.getInt(ROOT + "Fuel") == 0) {
                 data.putBoolean(ROOT + "Running", false);
                 data.putBoolean(ROOT + "Enabled", false);
