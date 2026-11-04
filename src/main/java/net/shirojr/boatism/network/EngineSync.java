@@ -17,6 +17,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
+import net.shirojr.boatism.gameplay.BoatEngineEvents;
 import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -30,6 +31,8 @@ public final class EngineSync {
     public static void register() {
         CHANNEL.messageBuilder(State.class, 0, NetworkDirection.PLAY_TO_CLIENT)
             .encoder(State::encode).decoder(State::decode).consumerMainThread(State::handle).add();
+        CHANNEL.messageBuilder(PowerDelta.class, 1, NetworkDirection.PLAY_TO_SERVER)
+            .encoder(PowerDelta::encode).decoder(PowerDelta::decode).consumerMainThread(PowerDelta::handle).add();
     }
 
     public record State(int id, CompoundTag data) {
@@ -46,13 +49,30 @@ public final class EngineSync {
         }
     }
 
+    public record PowerDelta(int delta) {
+        static void encode(PowerDelta packet, FriendlyByteBuf buf) { buf.writeVarInt(packet.delta); }
+        static PowerDelta decode(FriendlyByteBuf buf) { return new PowerDelta(buf.readVarInt()); }
+        static void handle(PowerDelta packet, Supplier<NetworkEvent.Context> context) {
+            ServerPlayer sender = context.get().getSender();
+            context.get().enqueueWork(() -> {
+                if (sender != null && sender.getVehicle() instanceof Boat boat
+                    && boat.getControllingPassenger() == sender) {
+                    BoatEngineEvents.adjustPowerLevel(boat, sender, packet.delta());
+                }
+            });
+            context.get().setPacketHandled(true);
+        }
+    }
+
     private static CompoundTag snapshot(Boat boat) {
         CompoundTag original = boat.getPersistentData();
         CompoundTag state = new CompoundTag();
         for (String suffix : new String[]{"Installed", "Running", "Exhaust", "Canister", "StrappedCanister", "Plates"}) {
             state.putBoolean(suffix, original.getBoolean(ROOT + suffix));
         }
-        state.putInt("Fuel", original.getInt(ROOT + "Fuel"));
+        state.putFloat("Fuel", original.getFloat(ROOT + "Fuel"));
+        state.putInt("Power", original.getInt(ROOT + "Power"));
+        state.putFloat("Heat", original.getFloat(ROOT + "Heat"));
         return state;
     }
 

@@ -1,34 +1,71 @@
 package net.shirojr.boatism.gameplay;
 
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.tags.FluidTags;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundSource;
-import net.shirojr.boatism.registry.BoatismSounds;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
 import net.shirojr.boatism.registry.BoatismItems;
+import net.shirojr.boatism.registry.BoatismSounds;
 
 /**
- * Experimental Forge boat propulsion bridge. Not a replacement for the original
- * BoatEngineEntity, GUI, inventory, animations, or Fabric mixins.
+ * Forge 1.20.1 gameplay bridge. Original 0.1.1 throttle/upgrade stats are kept
+ * here while a full separate engine entity and engine GUI are being ported.
  */
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class BoatEngineEvents {
-    private static final String ROOT = "BoatismForgeEngine";
+    public static final String ROOT = "BoatismForgeEngine";
+    private static final int BASE_FUEL_CAPACITY = 1000;
+    private static final int CANISTER_FUEL_BONUS = 5500;
+    private static final float FUEL_BUCKET_CONTENTS = 3000f;
+    private static final float BASE_OVERHEAT_LIMIT = 1000f;
+    private static final float EXHAUST_OVERHEAT_BONUS = 2000f;
     private BoatEngineEvents() {}
+
+    private static boolean hasCanister(CompoundTag data) {
+        return data.getBoolean(ROOT + "Canister") || data.getBoolean(ROOT + "StrappedCanister");
+    }
+
+    public static int fuelCapacity(CompoundTag data) {
+        return BASE_FUEL_CAPACITY + (hasCanister(data) ? CANISTER_FUEL_BONUS : 0);
+    }
+
+    private static float overheatLimit(CompoundTag data) {
+        return BASE_OVERHEAT_LIMIT + (data.getBoolean(ROOT + "Exhaust") ? EXHAUST_OVERHEAT_BONUS : 0);
+    }
+
+    private static void levelSound(Boat boat, SoundEvent sound) {
+        boat.level().playSound(null, boat.getX(), boat.getY(), boat.getZ(),
+            sound, SoundSource.NEUTRAL, 0.7f, 1.0f);
+    }
+
+    public static void adjustPowerLevel(Boat boat, ServerPlayer player, int delta) {
+        CompoundTag data = boat.getPersistentData();
+        if (!data.getBoolean(ROOT + "Installed") || !data.getBoolean(ROOT + "Running")) return;
+        int previous = data.getInt(ROOT + "Power");
+        int max = data.getFloat(ROOT + "Fuel") < fuelCapacity(data) * 0.2f ? 3 : 9;
+        int requested = Mth.clamp(previous + Integer.signum(delta), 0, max);
+        if (requested == previous) return;
+        data.putInt(ROOT + "Power", requested);
+        levelSound(boat, requested > previous
+            ? BoatismSounds.BOAT_ENGINE_POWER_UP.get() : BoatismSounds.BOAT_ENGINE_POWER_DOWN.get());
+        player.displayClientMessage(Component.literal("Power Level: " + requested), true);
+    }
 
     @SubscribeEvent
     public static void interact(PlayerInteractEvent.EntityInteract event) {
@@ -36,100 +73,129 @@ public final class BoatEngineEvents {
         if (event.getHand() != InteractionHand.MAIN_HAND) return;
         ItemStack held = event.getEntity().getItemInHand(event.getHand());
         CompoundTag data = boat.getPersistentData();
+
         if (held.isEmpty()) {
-            // Sneak + empty hand on an installed motor toggles its ignition.
-            // Normal right-click remains available for entering the boat.
+            // This bridge uses the hull for ignition until the original
+            // interactable BoatEngineEntity hitbox has been ported.
             if (!event.getEntity().isShiftKeyDown() || !data.getBoolean(ROOT + "Installed")) return;
             if (!boat.level().isClientSide) {
                 boolean enabled = !data.getBoolean(ROOT + "Enabled");
-                if (enabled && data.getInt(ROOT + "Fuel") <= 0) {
+                if (enabled && data.getFloat(ROOT + "Fuel") < 5.0f) {
                     levelSound(boat, BoatismSounds.BOAT_ENGINE_START_FAIL.get());
                     event.getEntity().displayClientMessage(Component.literal("Add fuel before starting the engine"), true);
                 } else {
                     data.putBoolean(ROOT + "Enabled", enabled);
-                    if (!enabled) data.putBoolean(ROOT + "Running", false);
-                    event.getEntity().displayClientMessage(Component.literal(enabled ? "Boat engine switched on" : "Boat engine switched off"), true);
-                    if (!enabled) levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
+                    if (!enabled) {
+                        data.putBoolean(ROOT + "Running", false);
+                        data.putInt(ROOT + "Power", 0);
+                        levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
+                    }
+                    event.getEntity().displayClientMessage(
+                        Component.literal(enabled ? "Boat engine switched on (power 0)" : "Boat engine switched off"), true);
                 }
             }
             event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
             event.setCanceled(true);
             return;
         }
+
         if (held.is(BoatismItems.BASE_ENGINE.get()) && !data.getBoolean(ROOT + "Installed")) {
             if (!boat.level().isClientSide) {
                 data.putBoolean(ROOT + "Installed", true);
                 data.putBoolean(ROOT + "Enabled", false);
-                data.putInt(ROOT + "Fuel", 0);
+                data.putBoolean(ROOT + "Running", false);
+                data.putFloat(ROOT + "Fuel", 0f);
+                data.putFloat(ROOT + "Heat", 0f);
+                data.putInt(ROOT + "Power", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
                 if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-                event.getEntity().displayClientMessage(Component.literal("Engine installed! Fuel it, then sneak-right-click with an empty hand to turn it on."), true);
+                event.getEntity().displayClientMessage(
+                    Component.literal("Engine installed! Fuel it and sneak-right-click the boat to start."), true);
             }
             event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
             event.setCanceled(true);
-        } else if (held.is(BoatismItems.FUEL_BUCKET.get()) && data.getBoolean(ROOT + "Installed")) {
-            if (!boat.level().isClientSide) {
-                data.putInt(ROOT + "Fuel", Math.min(fuelCapacity(data), data.getInt(ROOT + "Fuel") + 6000));
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_POUR.get());
-                data.putBoolean(ROOT + "LowFuelWarned", false);
-                if (!event.getEntity().getAbilities().instabuild) {
-                    held.shrink(1);
-                    ItemStack emptyBucket = new ItemStack(Items.BUCKET);
-                    if (!event.getEntity().getInventory().add(emptyBucket)) event.getEntity().drop(emptyBucket, false);
-                }
-                event.getEntity().displayClientMessage(Component.literal("Fuel: " + data.getInt(ROOT + "Fuel") + "/" + fuelCapacity(data)), true);
-            }
-            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-            event.setCanceled(true);
-        } else if (data.getBoolean(ROOT + "Installed")) {
-            String upgrade = null;
-            if (held.is(BoatismItems.COMPONENT_EXHAUST.get())) upgrade = "Exhaust";
-            else if (held.is(BoatismItems.COMPONENT_CANISTER.get())) upgrade = "Canister";
-            else if (held.is(BoatismItems.COMPONENT_CANISTER_STRAPPED.get())) upgrade = "StrappedCanister";
-            else if (held.is(BoatismItems.COMPONENT_PLATES.get())) upgrade = "Plates";
-            if (upgrade != null && !data.getBoolean(ROOT + upgrade)) {
-                if (!boat.level().isClientSide) {
-                    data.putBoolean(ROOT + upgrade, true);
-                    // In the original Boatism, placing a normal canister
-                    // displays the strapped item model on the motor.
-                    if (upgrade.equals("Canister")) data.putBoolean(ROOT + "StrappedCanister", true);
-                    if (upgrade.equals("Canister") || upgrade.equals("StrappedCanister")) {
-                        event.getEntity().displayClientMessage(Component.literal("Fuel capacity: " + fuelCapacity(data)), true);
-                    }
-                    levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
-                    if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-                    event.getEntity().displayClientMessage(Component.literal("Installed " + upgrade), true);
-                }
-                event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-                event.setCanceled(true);
-            }
+            return;
         }
+
+        if (held.is(BoatismItems.FUEL_BUCKET.get()) && data.getBoolean(ROOT + "Installed")) {
+            if (!boat.level().isClientSide) {
+                if (data.getBoolean(ROOT + "Running")) {
+                    event.getEntity().displayClientMessage(Component.literal("Stop the engine before refueling"), true);
+                } else {
+                    float contents = FUEL_BUCKET_CONTENTS;
+                    if (held.hasTag() && held.getTag().contains("BucketFuel")) {
+                        contents = held.getTag().getFloat("BucketFuel");
+                    }
+                    float fuel = Math.min(fuelCapacity(data), data.getFloat(ROOT + "Fuel") + contents);
+                    data.putFloat(ROOT + "Fuel", fuel);
+                    data.putBoolean(ROOT + "LowFuelWarned", false);
+                    levelSound(boat, BoatismSounds.BOAT_ENGINE_POUR.get());
+                    if (!event.getEntity().getAbilities().instabuild) {
+                        held.shrink(1);
+                        ItemStack emptyBucket = new ItemStack(Items.BUCKET);
+                        if (!event.getEntity().getInventory().add(emptyBucket)) {
+                            event.getEntity().drop(emptyBucket, false);
+                        }
+                    }
+                    event.getEntity().displayClientMessage(Component.literal("Fuel: " + (int) fuel
+                        + "/" + fuelCapacity(data)), true);
+                }
+            }
+            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
+            event.setCanceled(true);
+            return;
+        }
+
+        if (!data.getBoolean(ROOT + "Installed")) return;
+        String upgrade = null;
+        if (held.is(BoatismItems.COMPONENT_EXHAUST.get())) upgrade = "Exhaust";
+        else if (held.is(BoatismItems.COMPONENT_CANISTER.get())) upgrade = "Canister";
+        else if (held.is(BoatismItems.COMPONENT_CANISTER_STRAPPED.get())) upgrade = "StrappedCanister";
+        else if (held.is(BoatismItems.COMPONENT_PLATES.get())) upgrade = "Plates";
+
+        if (upgrade == null) return;
+        boolean isCanister = upgrade.equals("Canister") || upgrade.equals("StrappedCanister");
+        boolean conflict = isCanister && data.getBoolean(ROOT + "Plates")
+            || upgrade.equals("Plates") && hasCanister(data);
+        if (conflict || data.getBoolean(ROOT + upgrade) || isCanister && hasCanister(data)) {
+            if (!boat.level().isClientSide) {
+                event.getEntity().displayClientMessage(Component.literal("This engine component cannot be equipped"), true);
+            }
+        } else if (!boat.level().isClientSide) {
+            data.putBoolean(ROOT + upgrade, true);
+            if (isCanister) {
+                // The original normal canister changes into its strapped
+                // appearance when attached, without an extra fuel bonus.
+                data.putBoolean(ROOT + "Canister", true);
+                data.putBoolean(ROOT + "StrappedCanister", true);
+                event.getEntity().displayClientMessage(Component.literal("Fuel capacity: " + fuelCapacity(data)), true);
+            }
+            levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
+            if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
+            event.getEntity().displayClientMessage(Component.literal("Installed " + upgrade), true);
+        }
+        event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
+        event.setCanceled(true);
     }
 
-    private static void displayStatus(Boat boat, CompoundTag data, boolean running) {
-        String mode = running ? "RUNNING"
-            : data.getInt(ROOT + "Fuel") <= 0 ? "NO FUEL"
+    private static void displayStatus(Boat boat, CompoundTag data) {
+        String mode = data.getBoolean(ROOT + "Running") ? "RUNNING"
+            : data.getFloat(ROOT + "Fuel") <= 0 ? "NO FUEL"
             : data.getBoolean(ROOT + "Enabled") ? "READY" : "OFF";
-        int fuelPercent = Math.round(100.0f * data.getInt(ROOT + "Fuel") / fuelCapacity(data));
-        double horizontalTravel = Math.hypot(boat.getX() - boat.xOld, boat.getZ() - boat.zOld);
-        double blocksPerSecond = Math.round(horizontalTravel * 200.0) / 10.0;
+        int fuelPercent = Math.round(100.0f * data.getFloat(ROOT + "Fuel") / fuelCapacity(data));
+        double travelled = Math.hypot(boat.getX() - boat.xOld, boat.getZ() - boat.zOld);
+        double blocksPerSecond = Math.round(travelled * 200.0) / 10.0;
         String upgrades = (data.getBoolean(ROOT + "Exhaust") ? " +Exhaust" : "")
-            + (data.getBoolean(ROOT + "StrappedCanister") || data.getBoolean(ROOT + "Canister") ? " +Canister" : "")
+            + (hasCanister(data) ? " +Canister" : "")
             + (data.getBoolean(ROOT + "Plates") ? " +Plates" : "");
-        Component text = Component.literal("Motor: " + mode + "  |  Fuel: " + fuelPercent
-            + "%  |  Speed: " + blocksPerSecond + " blocks/s" + upgrades);
+        Component text = Component.literal("Motor: " + mode
+            + " | Power: " + data.getInt(ROOT + "Power") + "/9"
+            + " | Fuel: " + fuelPercent + "%"
+            + " | Heat: " + Math.round(data.getFloat(ROOT + "Heat")) + "/" + Math.round(overheatLimit(data))
+            + " | Speed: " + blocksPerSecond + " blocks/s" + upgrades);
         for (Entity rider : boat.getPassengers()) {
             if (rider instanceof ServerPlayer player) player.displayClientMessage(text, true);
         }
-    }
-
-    private static int fuelCapacity(CompoundTag data) {
-        if (data.getBoolean(ROOT + "StrappedCanister") || data.getBoolean(ROOT + "Canister")) return 36000;
-        return 24000;
-    }
-
-    private static void levelSound(Boat boat, net.minecraft.sounds.SoundEvent sound) {
-        boat.level().playSound(null, boat.getX(), boat.getY(), boat.getZ(), sound, SoundSource.NEUTRAL, 0.7f, 1.0f);
     }
 
     @SubscribeEvent
@@ -139,57 +205,82 @@ public final class BoatEngineEvents {
             if (!(entity instanceof Boat boat)) continue;
             CompoundTag data = boat.getPersistentData();
             if (!data.getBoolean(ROOT + "Installed")) continue;
-            if (data.getInt(ROOT + "Fuel") <= 0) {
-                if (data.getBoolean(ROOT + "Running")) {
-                    data.putBoolean(ROOT + "Running", false);
-                    levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
-                }
-                if (level.getGameTime() % 20 == 0) displayStatus(boat, data, false);
-                continue;
-            }
-            // Boat.getStatus() is private in 1.20.1 Mojmap. Check the
-            // fluid immediately under the hull as well as immersion.
-            boolean inWater = boat.isInWaterOrBubble()
-                || boat.level().getFluidState(boat.blockPosition().below()).is(FluidTags.WATER);
-            boolean running = data.getBoolean(ROOT + "Enabled")
-                && !boat.getPassengers().isEmpty() && inWater;
+            float fuel = Math.min(data.getFloat(ROOT + "Fuel"), fuelCapacity(data));
+            if (fuel != data.getFloat(ROOT + "Fuel")) data.putFloat(ROOT + "Fuel", fuel);
+
+            boolean running = data.getBoolean(ROOT + "Enabled") && fuel >= 1f;
             boolean wasRunning = data.getBoolean(ROOT + "Running");
             if (running != wasRunning) {
                 data.putBoolean(ROOT + "Running", running);
-                levelSound(boat, running ? BoatismSounds.BOAT_ENGINE_START.get() : BoatismSounds.BOAT_ENGINE_STOP.get());
+                levelSound(boat, running ? BoatismSounds.BOAT_ENGINE_START.get()
+                    : BoatismSounds.BOAT_ENGINE_STOP.get());
             }
             if (!running) {
-                if (level.getGameTime() % 20 == 0) displayStatus(boat, data, false);
+                data.putInt(ROOT + "Power", 0);
+                if (level.getGameTime() % 20 == 0) displayStatus(boat, data);
                 continue;
             }
-            if (level.getGameTime() % 35 == 0) levelSound(boat, BoatismSounds.BOAT_ENGINE_DEFAULT.get());
-            if (data.getInt(ROOT + "Fuel") <= 200 && !data.getBoolean(ROOT + "LowFuelWarned")) {
-                data.putBoolean(ROOT + "LowFuelWarned", true);
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_LOW_FUEL.get());
+
+            int power = data.getInt(ROOT + "Power");
+            int maxPower = fuel < fuelCapacity(data) * 0.2f ? 3 : 9;
+            if (power > maxPower) {
+                power = maxPower;
+                data.putInt(ROOT + "Power", power);
             }
-            // Player-operated boats are simulated by their controlling
-            // client. Applying server-only velocity here gets overwritten
-            // by vanilla boat controls; client control handles those boats.
-            if (!(boat.getControllingPassenger() instanceof ServerPlayer)) {
-                Vec3 velocity = boat.getDeltaMovement();
+            boolean inWater = boat.isInWaterOrBubble()
+                || boat.level().getFluidState(boat.blockPosition().below()).is(FluidTags.WATER);
+
+            // Exhaust increases heat tolerance, NOT top speed.
+            float heat = data.getFloat(ROOT + "Heat");
+            if (power >= 7) heat += 2.0f;
+            else heat = Math.max(0.0f, heat - 1.0f);
+            if (power > 3 && boat.getDeltaMovement().horizontalDistanceSqr() < 0.01) heat += 2.0f;
+            if (!inWater) heat += 4.0f;
+            data.putFloat(ROOT + "Heat", heat);
+            if (heat > overheatLimit(data)) {
+                data.putBoolean(ROOT + "Running", false);
+                data.putBoolean(ROOT + "Enabled", false);
+                data.putInt(ROOT + "Power", 0);
+                levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
+                levelSound(boat, BoatismSounds.BOAT_ENGINE_HEAT.get());
+                for (Entity rider : boat.getPassengers()) {
+                    if (rider instanceof ServerPlayer player) {
+                        player.displayClientMessage(Component.literal("Engine overheated!"), true);
+                    }
+                }
+                continue;
+            }
+
+            // Vanilla simulates player-operated boats client-side. Server
+            // thrust here is only for boats without a controlling player.
+            if (power > 0 && inWater && !(boat.getControllingPassenger() instanceof ServerPlayer)) {
+                Vec3 motion = boat.getDeltaMovement();
                 Vec3 heading = boat.getLookAngle();
-                double acceleration = data.getBoolean(ROOT + "Exhaust") ? 0.055 : 0.045;
-                double maxSpeed = data.getBoolean(ROOT + "Exhaust") ? 0.72 : 0.60;
-                Vec3 horizontal = new Vec3(velocity.x + heading.x * acceleration, 0,
-                    velocity.z + heading.z * acceleration);
+                double acceleration = 0.011 * power;
+                double maxSpeed = 0.10 * power;
+                Vec3 horizontal = new Vec3(motion.x + heading.x * acceleration, 0,
+                    motion.z + heading.z * acceleration);
                 if (horizontal.horizontalDistanceSqr() > maxSpeed * maxSpeed) {
                     horizontal = horizontal.normalize().scale(maxSpeed);
                 }
-                boat.setDeltaMovement(horizontal.x, velocity.y, horizontal.z);
+                boat.setDeltaMovement(horizontal.x, motion.y, horizontal.z);
                 boat.hurtMarked = true;
             }
-            data.putInt(ROOT + "Fuel", data.getInt(ROOT + "Fuel") - 1);
-            if (level.getGameTime() % 20 == 0) displayStatus(boat, data, true);
-            if (data.getInt(ROOT + "Fuel") == 0) {
+
+            float cost = hasCanister(data) ? 1.2f : 1.0f;
+            float remaining = Math.max(0.0f, fuel - cost);
+            data.putFloat(ROOT + "Fuel", remaining);
+            if (remaining <= fuelCapacity(data) * 0.2f && !data.getBoolean(ROOT + "LowFuelWarned")) {
+                data.putBoolean(ROOT + "LowFuelWarned", true);
+                levelSound(boat, BoatismSounds.BOAT_ENGINE_LOW_FUEL.get());
+            }
+            if (remaining <= 0.0f) {
                 data.putBoolean(ROOT + "Running", false);
                 data.putBoolean(ROOT + "Enabled", false);
+                data.putInt(ROOT + "Power", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
             }
+            if (level.getGameTime() % 20 == 0) displayStatus(boat, data);
         }
     }
 }

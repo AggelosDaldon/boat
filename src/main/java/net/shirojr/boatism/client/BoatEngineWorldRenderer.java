@@ -67,7 +67,8 @@ public final class BoatEngineWorldRenderer {
             pose.scale(-1.5f, -1.5f, 1.5f);
             pose.translate(0.0, -1.501, 0.0);
             ModelPart rod = root.getChild("rod");
-            rod.getChild("propeller").zRot = state.getBoolean("Running") ? (boat.tickCount + partial) * 0.35f : 0f;
+            rod.getChild("propeller").zRot = state.getBoolean("Running") && state.getInt("Power") > 0
+                ? (boat.tickCount + partial) * (0.08f + state.getInt("Power") * 0.04f) : 0f;
             root.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), 0xF000F0, OverlayTexture.NO_OVERLAY);
 
             // The original Fabric engine displays upgrades as FIXED item
