@@ -111,7 +111,8 @@ public final class BoatEngineEvents {
             : data.getInt(ROOT + "Fuel") <= 0 ? "NO FUEL"
             : data.getBoolean(ROOT + "Enabled") ? "READY" : "OFF";
         int fuelPercent = Math.round(100.0f * data.getInt(ROOT + "Fuel") / fuelCapacity(data));
-        double blocksPerSecond = Math.round(boat.getDeltaMovement().horizontalDistance() * 200.0) / 10.0;
+        double horizontalTravel = Math.hypot(boat.getX() - boat.xOld, boat.getZ() - boat.zOld);
+        double blocksPerSecond = Math.round(horizontalTravel * 200.0) / 10.0;
         String upgrades = (data.getBoolean(ROOT + "Exhaust") ? " +Exhaust" : "")
             + (data.getBoolean(ROOT + "StrappedCanister") || data.getBoolean(ROOT + "Canister") ? " +Canister" : "")
             + (data.getBoolean(ROOT + "Plates") ? " +Plates" : "");
@@ -166,14 +167,22 @@ public final class BoatEngineEvents {
                 data.putBoolean(ROOT + "LowFuelWarned", true);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_LOW_FUEL.get());
             }
-            Vec3 velocity = boat.getDeltaMovement();
-            Vec3 heading = boat.getLookAngle();
-            double acceleration = data.getBoolean(ROOT + "Exhaust") ? 0.055 : 0.045;
-            double maxSpeed = data.getBoolean(ROOT + "Exhaust") ? 0.72 : 0.60;
-            Vec3 horizontal = new Vec3(velocity.x + heading.x * acceleration, 0, velocity.z + heading.z * acceleration);
-            if (horizontal.horizontalDistanceSqr() > maxSpeed * maxSpeed) horizontal = horizontal.normalize().scale(maxSpeed);
-            boat.setDeltaMovement(horizontal.x, velocity.y, horizontal.z);
-            boat.hurtMarked = true;
+            // Player-operated boats are simulated by their controlling
+            // client. Applying server-only velocity here gets overwritten
+            // by vanilla boat controls; client control handles those boats.
+            if (!(boat.getControllingPassenger() instanceof ServerPlayer)) {
+                Vec3 velocity = boat.getDeltaMovement();
+                Vec3 heading = boat.getLookAngle();
+                double acceleration = data.getBoolean(ROOT + "Exhaust") ? 0.055 : 0.045;
+                double maxSpeed = data.getBoolean(ROOT + "Exhaust") ? 0.72 : 0.60;
+                Vec3 horizontal = new Vec3(velocity.x + heading.x * acceleration, 0,
+                    velocity.z + heading.z * acceleration);
+                if (horizontal.horizontalDistanceSqr() > maxSpeed * maxSpeed) {
+                    horizontal = horizontal.normalize().scale(maxSpeed);
+                }
+                boat.setDeltaMovement(horizontal.x, velocity.y, horizontal.z);
+                boat.hurtMarked = true;
+            }
             data.putInt(ROOT + "Fuel", data.getInt(ROOT + "Fuel") - 1);
             if (level.getGameTime() % 20 == 0) displayStatus(boat, data, true);
             if (data.getInt(ROOT + "Fuel") == 0) {
