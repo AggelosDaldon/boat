@@ -13,7 +13,7 @@
       "item": "minecraft:potion"
     },
     "b": {
-      "tag": "minecraft:barrel"
+      "item": "minecraft:barrel"
     }
   },
   "result": {
