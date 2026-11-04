@@ -2,7 +2,6 @@ package net.shirojr.boatism.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -21,15 +20,14 @@ import net.shirojr.boatism.network.ClientReceiver;
 import net.shirojr.boatism.registry.BoatismItems;
 
 /**
- * Stage 8 experimental world-space model renderer.
+ * World-space renderer using the custom Blockbench engine's exact face UVs.
  * Client-side boat NBT is not synchronized by vanilla: this only displays for
  * boats whose installation flag is visible on the client.
  */
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class BoatEngineWorldRenderer {
     private static final ResourceLocation TEXTURE =
-        new ResourceLocation(Boatism.MOD_ID, "textures/entity/boatengine.png");
-    private static ModelPart root;
+        new ResourceLocation(Boatism.MOD_ID, "textures/item/boatengine.png");
     private BoatEngineWorldRenderer() {}
 
     @SubscribeEvent
@@ -37,7 +35,6 @@ public final class BoatEngineWorldRenderer {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-        if (root == null) root = BoatEngineModel.root(mc.getEntityModels().bakeLayer(BoatEngineModel.LAYER));
         PoseStack pose = event.getPoseStack();
         var camera = event.getCamera().getPosition();
         float partial = event.getPartialTick();
@@ -63,19 +60,19 @@ public final class BoatEngineWorldRenderer {
                 attachmentZ = 1.2f;
             }
             pose.translate(0.0, attachmentY, attachmentZ);
-            // Match the original entity renderer's 1.5x model scale.
-            pose.scale(-1.5f, -1.5f, 1.5f);
-            pose.translate(0.0, -1.501, 0.0);
-            ModelPart rod = root.getChild("rod");
-            rod.getChild("propeller").zRot = state.getBoolean("Running") && state.getInt("Power") > 0
+            // The uploaded Blockbench model is 16-pixel item geometry. Use
+            // its original per-face UVs at the same stern attachment point.
+            pose.scale(1.5f, 1.5f, 1.5f);
+            float propellerAngle = state.getBoolean("Running") && state.getInt("Power") > 0
                 ? (boat.tickCount + partial) * (0.08f + state.getInt("Power") * 0.04f) : 0f;
-            root.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), 0xF000F0, OverlayTexture.NO_OVERLAY);
+            BoatEngineGeometry.get().render(pose,
+                buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), propellerAngle);
 
             // The strapped canister is a render-only appearance for the
             // regular canister installed on the engine.
             if (state.getBoolean("StrappedCanister") || state.getBoolean("Canister")) {
                 drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_CANISTER_STRAPPED.get()),
-                    0.48f, 2.3, 90f, 180f, boat.getId());
+                    0.48f, 0.83, 90f, 180f, boat.getId());
             }
             pose.popPose();
         }

@@ -102,7 +102,35 @@ public final class BoatEngineClientControl {
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof Boat boat)) continue;
             CompoundTag state = ClientReceiver.get(boat.getId());
-            if (state == null || !state.getBoolean("Running") || state.getInt("Power") <= 0) continue;
+            if (state == null || !state.getBoolean("Installed") || !state.getBoolean("Running")) continue;
+            // Smoke is emitted from the highest point of the Blockbench cube
+            // named "smoke particle here": centre x=7.5, top y=11, z=13.5.
+            // Convert model pixels to the same 1.5x stern renderer transform.
+            // Idle power 0 still smokes lightly while the engine is running.
+            if (mc.level.random.nextInt(4) == 0) {
+                double attachmentY = boat.getBbHeight() / 3.0;
+                double attachmentZ = 1.32;
+                if (boat.getVariant() == Boat.Type.BAMBOO) {
+                    attachmentY = boat.getBbHeight() * 0.7;
+                    attachmentZ = 1.2;
+                }
+                double modelX = (7.5 - 8.0) / 16.0 * 1.5;
+                double modelZ = attachmentZ + (13.5 - 8.0) / 16.0 * 1.5;
+                double smokeYaw = Math.toRadians(180.0 - boat.getYRot());
+                double smokeX = boat.getX() + modelX * Math.cos(smokeYaw)
+                    + modelZ * Math.sin(smokeYaw);
+                double smokeZ = boat.getZ() - modelX * Math.sin(smokeYaw)
+                    + modelZ * Math.cos(smokeYaw);
+                double smokeY = boat.getY() + attachmentY + 11.0 / 16.0 * 1.5 + 0.025;
+                mc.level.addParticle(ParticleTypes.SMOKE,
+                    smokeX + (mc.level.random.nextDouble() - 0.5) * 0.035,
+                    smokeY,
+                    smokeZ + (mc.level.random.nextDouble() - 0.5) * 0.035,
+                    (mc.level.random.nextDouble() - 0.5) * 0.005,
+                    0.012 + mc.level.random.nextDouble() * 0.009,
+                    (mc.level.random.nextDouble() - 0.5) * 0.005);
+            }
+            if (state.getInt("Power") <= 0) continue;
             if (mc.level.random.nextInt(3) != 0) continue;
 
             double yaw = Math.toRadians(180.0 - boat.getYRot());

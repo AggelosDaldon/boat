@@ -1,4 +1,4 @@
-# Boatism — custom Forge 1.20.1 port (Stage 18)
+# Boatism — custom Forge 1.20.1 port (Stage 19)
 
 Minecraft **1.20.1**, Forge **47.4.22**, Java **17**.
 
@@ -23,6 +23,12 @@ The only user-installable upgrade is the **Fuel Canister**:
 6. Fuel capacity is 1,000 normally or 6,500 with the canister. Each Fuel Bucket fills up to 3,000 units, capped at current capacity.
 
 Engine audio uses a position-tracked loop with volume fades and dynamic pitch.
+
+## Stage 19: owner's updated engine model
+
+The engine item and stern-mounted world model use the supplied `base_engine-01.json` geometry and its unmodified dark `texture.png` atlas. The engine's independently mapped UV faces are rendered directly in-world; the separately grouped, slightly lowered propeller still spins with throttle power.
+
+A small vanilla smoke particle appears intermittently from the exact top centre of the element named `smoke particle here` (model x=7.5, y=11, z=13.5) when the engine is running, including at idle power 0. The boat and engine gameplay values are unchanged.
 
 ## Work in progress
 
