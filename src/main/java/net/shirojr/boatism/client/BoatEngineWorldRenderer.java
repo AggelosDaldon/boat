@@ -10,12 +10,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
 import net.shirojr.boatism.network.ClientReceiver;
+import net.shirojr.boatism.registry.BoatismItems;
 
 /**
  * Stage 8 experimental world-space model renderer.
@@ -64,8 +67,36 @@ public final class BoatEngineWorldRenderer {
             ModelPart rod = root.getChild("rod");
             rod.getChild("propeller").zRot = state.getBoolean("Running") ? (boat.tickCount + partial) * 0.35f : 0f;
             root.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), 0xF000F0, OverlayTexture.NO_OVERLAY);
+
+            // The original Fabric engine displays upgrades as FIXED item
+            // models with per-component transforms; mirror those here.
+            if (state.getBoolean("Exhaust")) {
+                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_EXHAUST.get()),
+                    0.82f, 1.4, 180f, 180f, boat.getId());
+            }
+            if (state.getBoolean("StrappedCanister") || state.getBoolean("Canister")) {
+                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_CANISTER_STRAPPED.get()),
+                    0.48f, 2.3, 90f, 180f, boat.getId());
+            }
+            if (state.getBoolean("Plates")) {
+                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_PLATES.get()),
+                    0.5f, 2.43, 90f, 180f, boat.getId());
+            }
             pose.popPose();
         }
         buffers.endBatch();
+    }
+
+    private static void drawUpgrade(Minecraft mc, PoseStack pose, MultiBufferSource.BufferSource buffers,
+                                    ItemStack stack, float scale, double yOffset,
+                                    float xDegrees, float yDegrees, int seed) {
+        pose.pushPose();
+        pose.scale(scale, scale, scale);
+        pose.translate(0.0, yOffset, 0.0);
+        pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(xDegrees));
+        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(yDegrees));
+        mc.getItemRenderer().renderStatic(stack, ItemDisplayContext.FIXED,
+            0xF000F0, OverlayTexture.NO_OVERLAY, pose, buffers, mc.level, seed);
+        pose.popPose();
     }
 }
