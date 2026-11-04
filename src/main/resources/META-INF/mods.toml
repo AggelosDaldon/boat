@@ -1,0 +1,21 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+[[mods]]
+modId="boatism"
+version="${version}"
+displayName="Boatism (Forge port WIP)"
+authors="ShiroJR, Globox1997, JoeMama, Apfelrunder"
+description='''Work-in-progress Forge port. Original Boatism by ShiroJR and collaborators.'''
+[[dependencies.boatism]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.22,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.boatism]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="BOTH"

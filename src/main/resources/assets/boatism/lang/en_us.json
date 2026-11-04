@@ -1,0 +1,56 @@
+{
+  "itemgroup.boatism.boatism": "Boatism",
+
+  "item.boatism.base_engine": "Boat Engine",
+  "item.boatism.fuel_bucket": "Fuel Bucket",
+  "item.boatism.component_exhaust": "Custom Exhaust",
+  "item.boatism.component_canister": "Fuel Canister",
+  "item.boatism.component_canister_strapped": "Fuel Canister Strapped",
+  "item.boatism.component_plates": "Custom Plating",
+
+  "entity.boatism.boat_engine": "Boat Engine",
+
+  "tooltip.boatism.base_engine_1": "To hook, place the engine on a BoatEntity",
+  "tooltip.boatism.base_engine_2": "Fill up with a fuel bucket",
+  "tooltip.boatism.base_engine_3": "§3[Sneak]§r and §3[Interact]§r to start",
+  "tooltip.boatism.base_engine_4": "Use §3[Mouse Wheel]§r while sitting in a running boat to adjust Power Level",
+  "tooltip.boatism.base_engine_5": "§4Don't overheat and have fun!§r",
+
+  "warning.boatism.engine_is_running": "§3Engine is running§r",
+  "warning.boatism.component_is_blocked": "§3Component is blocked by another component§r",
+  "warning.boatism.low_on_fuel": "§3Engine is running out of fuel§r",
+  "warning.boatism.starting_to_overheat": "§3Engine is slowly starting to overheat§r",
+  "warning.boatism.low_health": "§3Engine is damaged§r",
+
+  "gamerule.engineExplosionDestruction": "Overheated engines explode destructively (plating can mitigate)",
+
+  "mouse.boatism.power_level": "Power Level: §a%s§r",
+  "key.boatism.group": "Boatism",
+  "key.boatism.power_level_up": "Power Level Up",
+  "key.boatism.power_level_down": "Power Level Down",
+
+  "sound.boatism.boat_engine.default": "Running Engine",
+  "sound.boatism.boat_engine.underwater": "Running submerged Engine",
+  "sound.boatism.boat_engine.power_up": "Increased Boat Engine power click",
+  "sound.boatism.boat_engine.power_down": "Decreased Boat Engine power click",
+  "sound.boatism.boat_engine.start": "Starting Boat Engine",
+  "sound.boatism.boat_engine.start.fail": "Failed start of a Boat Engine",
+  "sound.boatism.boat_engine.stop": "Stopping Boat Engine",
+  "sound.boatism.boat_engine.low_fuel": "Low fuel in Boat Engine",
+  "sound.boatism.boat_engine.low_health": "Damaged Boat Engine",
+  "sound.boatism.boat_engine.heat": "Overheating Boat Engine",
+  "sound.boatism.boat_engine.pour": "Fuel being poured",
+  "sound.boatism.boat_engine.equip": "Mechanical noise",
+
+  "text.autoconfig.boatism.title": "Boatism configurations",
+
+  "text.autoconfig.boatism.category.general": "General Settings",
+  "text.autoconfig.boatism.category.engine_data": "Boat Engine Settings",
+
+  "text.autoconfig.boatism.option.powerLevelScrolling": "Remap scrolling to change Power Level",
+  "text.autoconfig.boatism.option.health": "Base health",
+  "text.autoconfig.boatism.option.lowHealth": "Low health warning",
+  "text.autoconfig.boatism.option.maxBaseFuel": "Maximum base fuel capacity",
+  "text.autoconfig.boatism.option.lowFuel": "Low fuel warning",
+  "text.autoconfig.boatism.option.maxBaseOverheat": "Base overheat mitigation"
+}

@@ -1,0 +1,78 @@
+{
+  "mappings": {
+    "net/shirojr/boatism/mixin/AttackWithOwnerGoalMixin": {
+      "Lnet/minecraft/entity/LivingEntity;getAttacking()Lnet/minecraft/entity/LivingEntity;": "Lnet/minecraft/class_1309;method_6052()Lnet/minecraft/class_1309;",
+      "canStart": "Lnet/minecraft/class_1406;method_6264()Z"
+    },
+    "net/shirojr/boatism/mixin/BoatEntityInvoker": {
+      "getMaxPassengers": "method_42281()I"
+    },
+    "net/shirojr/boatism/mixin/BoatEntityMixin": {
+      "Lnet/minecraft/entity/player/PlayerEntity;startRiding(Lnet/minecraft/entity/Entity;)Z": "Lnet/minecraft/class_1657;method_5804(Lnet/minecraft/class_1297;)Z",
+      "Lnet/minecraft/entity/vehicle/BoatEntity;getVelocity()Lnet/minecraft/util/math/Vec3d;": "Lnet/minecraft/class_1690;method_18798()Lnet/minecraft/class_243;",
+      "canAddPassenger": "Lnet/minecraft/class_1690;method_5818(Lnet/minecraft/class_1297;)Z",
+      "canCollide": "Lnet/minecraft/class_1690;method_30959(Lnet/minecraft/class_1297;Lnet/minecraft/class_1297;)Z",
+      "getPassengerAttachmentPos": "Lnet/minecraft/class_1690;method_52533(Lnet/minecraft/class_1297;Lnet/minecraft/class_4048;F)Lorg/joml/Vector3f;",
+      "initDataTracker": "Lnet/minecraft/class_1690;method_5693()V",
+      "interact": "Lnet/minecraft/class_1690;method_5688(Lnet/minecraft/class_1657;Lnet/minecraft/class_1268;)Lnet/minecraft/class_1269;",
+      "readCustomDataFromNbt": "Lnet/minecraft/class_1690;method_5749(Lnet/minecraft/class_2487;)V",
+      "updatePaddles": "Lnet/minecraft/class_1690;method_7549()V",
+      "writeCustomDataToNbt": "Lnet/minecraft/class_1690;method_5652(Lnet/minecraft/class_2487;)V"
+    },
+    "net/shirojr/boatism/mixin/EntityMixin": {
+      "addPassenger": "Lnet/minecraft/class_1297;method_5627(Lnet/minecraft/class_1297;)V",
+      "discard": "Lnet/minecraft/class_1297;method_31472()V",
+      "remove": "Lnet/minecraft/class_1297;method_5650(Lnet/minecraft/class_1297$class_5529;)V",
+      "removeAllPassengers": "Lnet/minecraft/class_1297;method_5772()V"
+    },
+    "net/shirojr/boatism/mixin/ItemMixin": {
+      "useOnEntity": "Lnet/minecraft/class_1792;method_7847(Lnet/minecraft/class_1799;Lnet/minecraft/class_1657;Lnet/minecraft/class_1309;Lnet/minecraft/class_1268;)Lnet/minecraft/class_1269;"
+    },
+    "net/shirojr/boatism/mixin/WardenEntityMixin": {
+      "isValidTarget": "Lnet/minecraft/class_7260;method_42206(Lnet/minecraft/class_1297;)Z"
+    },
+    "net/shirojr/boatism/mixin/client/MouseMixin": {
+      "Lnet/minecraft/entity/player/PlayerInventory;scrollInHotbar(D)V": "Lnet/minecraft/class_1661;method_7373(D)V",
+      "onMouseScroll": "Lnet/minecraft/class_312;method_1598(JDD)V"
+    }
+  },
+  "data": {
+    "named:intermediary": {
+      "net/shirojr/boatism/mixin/AttackWithOwnerGoalMixin": {
+        "Lnet/minecraft/entity/LivingEntity;getAttacking()Lnet/minecraft/entity/LivingEntity;": "Lnet/minecraft/class_1309;method_6052()Lnet/minecraft/class_1309;",
+        "canStart": "Lnet/minecraft/class_1406;method_6264()Z"
+      },
+      "net/shirojr/boatism/mixin/BoatEntityInvoker": {
+        "getMaxPassengers": "method_42281()I"
+      },
+      "net/shirojr/boatism/mixin/BoatEntityMixin": {
+        "Lnet/minecraft/entity/player/PlayerEntity;startRiding(Lnet/minecraft/entity/Entity;)Z": "Lnet/minecraft/class_1657;method_5804(Lnet/minecraft/class_1297;)Z",
+        "Lnet/minecraft/entity/vehicle/BoatEntity;getVelocity()Lnet/minecraft/util/math/Vec3d;": "Lnet/minecraft/class_1690;method_18798()Lnet/minecraft/class_243;",
+        "canAddPassenger": "Lnet/minecraft/class_1690;method_5818(Lnet/minecraft/class_1297;)Z",
+        "canCollide": "Lnet/minecraft/class_1690;method_30959(Lnet/minecraft/class_1297;Lnet/minecraft/class_1297;)Z",
+        "getPassengerAttachmentPos": "Lnet/minecraft/class_1690;method_52533(Lnet/minecraft/class_1297;Lnet/minecraft/class_4048;F)Lorg/joml/Vector3f;",
+        "initDataTracker": "Lnet/minecraft/class_1690;method_5693()V",
+        "interact": "Lnet/minecraft/class_1690;method_5688(Lnet/minecraft/class_1657;Lnet/minecraft/class_1268;)Lnet/minecraft/class_1269;",
+        "readCustomDataFromNbt": "Lnet/minecraft/class_1690;method_5749(Lnet/minecraft/class_2487;)V",
+        "updatePaddles": "Lnet/minecraft/class_1690;method_7549()V",
+        "writeCustomDataToNbt": "Lnet/minecraft/class_1690;method_5652(Lnet/minecraft/class_2487;)V"
+      },
+      "net/shirojr/boatism/mixin/EntityMixin": {
+        "addPassenger": "Lnet/minecraft/class_1297;method_5627(Lnet/minecraft/class_1297;)V",
+        "discard": "Lnet/minecraft/class_1297;method_31472()V",
+        "remove": "Lnet/minecraft/class_1297;method_5650(Lnet/minecraft/class_1297$class_5529;)V",
+        "removeAllPassengers": "Lnet/minecraft/class_1297;method_5772()V"
+      },
+      "net/shirojr/boatism/mixin/ItemMixin": {
+        "useOnEntity": "Lnet/minecraft/class_1792;method_7847(Lnet/minecraft/class_1799;Lnet/minecraft/class_1657;Lnet/minecraft/class_1309;Lnet/minecraft/class_1268;)Lnet/minecraft/class_1269;"
+      },
+      "net/shirojr/boatism/mixin/WardenEntityMixin": {
+        "isValidTarget": "Lnet/minecraft/class_7260;method_42206(Lnet/minecraft/class_1297;)Z"
+      },
+      "net/shirojr/boatism/mixin/client/MouseMixin": {
+        "Lnet/minecraft/entity/player/PlayerInventory;scrollInHotbar(D)V": "Lnet/minecraft/class_1661;method_7373(D)V",
+        "onMouseScroll": "Lnet/minecraft/class_312;method_1598(JDD)V"
+      }
+    }
+  }
+}
