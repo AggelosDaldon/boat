@@ -1,6 +1,7 @@
 package net.shirojr.boatism.gameplay;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -89,6 +90,9 @@ public final class BoatEngineEvents {
             if (upgrade != null && !data.getBoolean(ROOT + upgrade)) {
                 if (!boat.level().isClientSide) {
                     data.putBoolean(ROOT + upgrade, true);
+                    // In the original Boatism, placing a normal canister
+                    // displays the strapped item model on the motor.
+                    if (upgrade.equals("Canister")) data.putBoolean(ROOT + "StrappedCanister", true);
                     if (upgrade.equals("Canister") || upgrade.equals("StrappedCanister")) {
                         event.getEntity().displayClientMessage(Component.literal("Fuel capacity: " + fuelCapacity(data)), true);
                     }
@@ -108,16 +112,18 @@ public final class BoatEngineEvents {
             : data.getBoolean(ROOT + "Enabled") ? "READY" : "OFF";
         int fuelPercent = Math.round(100.0f * data.getInt(ROOT + "Fuel") / fuelCapacity(data));
         double blocksPerSecond = Math.round(boat.getDeltaMovement().horizontalDistance() * 200.0) / 10.0;
+        String upgrades = (data.getBoolean(ROOT + "Exhaust") ? " +Exhaust" : "")
+            + (data.getBoolean(ROOT + "StrappedCanister") || data.getBoolean(ROOT + "Canister") ? " +Canister" : "")
+            + (data.getBoolean(ROOT + "Plates") ? " +Plates" : "");
         Component text = Component.literal("Motor: " + mode + "  |  Fuel: " + fuelPercent
-            + "%  |  Speed: " + blocksPerSecond + " blocks/s");
+            + "%  |  Speed: " + blocksPerSecond + " blocks/s" + upgrades);
         for (Entity rider : boat.getPassengers()) {
             if (rider instanceof ServerPlayer player) player.displayClientMessage(text, true);
         }
     }
 
     private static int fuelCapacity(CompoundTag data) {
-        if (data.getBoolean(ROOT + "StrappedCanister")) return 48000;
-        if (data.getBoolean(ROOT + "Canister")) return 36000;
+        if (data.getBoolean(ROOT + "StrappedCanister") || data.getBoolean(ROOT + "Canister")) return 36000;
         return 24000;
     }
 
@@ -140,10 +146,10 @@ public final class BoatEngineEvents {
                 if (level.getGameTime() % 20 == 0) displayStatus(boat, data, false);
                 continue;
             }
-            Boat.Status status = boat.getStatus();
-            boolean inWater = status == Boat.Status.IN_WATER
-                || status == Boat.Status.UNDER_WATER
-                || status == Boat.Status.UNDER_FLOWING_WATER;
+            // Boat.getStatus() is private in 1.20.1 Mojmap. Check the
+            // fluid immediately under the hull as well as immersion.
+            boolean inWater = boat.isInWaterOrBubble()
+                || boat.level().getFluidState(boat.blockPosition().below()).is(FluidTags.WATER);
             boolean running = data.getBoolean(ROOT + "Enabled")
                 && !boat.getPassengers().isEmpty() && inWater;
             boolean wasRunning = data.getBoolean(ROOT + "Running");
