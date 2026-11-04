@@ -1,4 +1,4 @@
-# Boatism — custom Forge 1.20.1 port (Stage 19)
+# Boatism — custom Forge 1.20.1 port (Stage 20)
 
 Minecraft **1.20.1**, Forge **47.4.22**, Java **17**.
 
@@ -29,6 +29,15 @@ Engine audio uses a position-tracked loop with volume fades and dynamic pitch.
 The engine item and stern-mounted world model use the supplied `base_engine-01.json` geometry and its unmodified dark `texture.png` atlas. The engine's independently mapped UV faces are rendered directly in-world; the separately grouped, slightly lowered propeller still spins with throttle power.
 
 A small vanilla smoke particle appears intermittently from the exact top centre of the element named `smoke particle here` (model x=7.5, y=11, z=13.5) when the engine is running, including at idle power 0. The boat and engine gameplay values are unchanged.
+
+## Stage 20: new Blockbench source, stronger prop wash and compact HUD
+
+- The owner's new editable Blockbench source is in `design/engine.bbmodel`; the game item model `base_engine.json` preserves all seven new cuboids, exact per-face UVs and 64×64 atlas coordinates. The supplied 128×128 `boatenginetxt.png` replaces the active item/engine texture. The unused legacy entity/engine texture has been removed.
+- The small SMOKE particles emit only while the motor is Running, including idle, from the top of the element named `smoke particle here`. The emitter reads its position from the JSON model instead of relying on hardcoded old coordinates.
+- Underwater propeller bubbles, bubble-pop and above-water splashes are increased with the Power level and aligned to the propeller group pivot.
+- A two-row status widget near the hotbar displays approximate km/h (one block ≈ one metre, with a teal-to-amber-to-red speed tint) and the remaining Fuel/capacity. It remains visible while the player rides a running motorized boat.
+- Removed the old, repeating action-bar engine status and redundant Power Level messages; one-time interaction notifications still exist.
+- Original fuel, throttle, canister and no-overheating behavior remain unchanged.
 
 ## Work in progress
 

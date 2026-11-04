@@ -58,7 +58,6 @@ public final class BoatEngineEvents {
         data.putInt(ROOT + "Power", requested);
         levelSound(boat, requested > previous
             ? BoatismSounds.BOAT_ENGINE_POWER_UP.get() : BoatismSounds.BOAT_ENGINE_POWER_DOWN.get());
-        player.displayClientMessage(Component.literal("Power Level: " + requested), true);
     }
 
     @SubscribeEvent
@@ -158,23 +157,6 @@ public final class BoatEngineEvents {
         event.setCanceled(true);
     }
 
-    private static void displayStatus(Boat boat, CompoundTag data) {
-        String mode = data.getBoolean(ROOT + "Running") ? "RUNNING"
-            : data.getFloat(ROOT + "Fuel") <= 0 ? "NO FUEL"
-            : data.getBoolean(ROOT + "Enabled") ? "READY" : "OFF";
-        int fuelPercent = Math.round(100.0f * data.getFloat(ROOT + "Fuel") / fuelCapacity(data));
-        double travelled = Math.hypot(boat.getX() - boat.xOld, boat.getZ() - boat.zOld);
-        double blocksPerSecond = Math.round(travelled * 200.0) / 10.0;
-        Component text = Component.literal("Motor: " + mode
-            + " | Power: " + data.getInt(ROOT + "Power") + "/9"
-            + " | Fuel: " + fuelPercent + "%"
-            + " | Speed: " + blocksPerSecond + " blocks/s"
-            + (hasCanister(data) ? " +Canister" : ""));
-        for (Entity rider : boat.getPassengers()) {
-            if (rider instanceof ServerPlayer player) player.displayClientMessage(text, true);
-        }
-    }
-
     @SubscribeEvent
     public static void tick(TickEvent.LevelTickEvent event) {
         if (event.phase != TickEvent.Phase.END || !(event.level instanceof ServerLevel level)) return;
@@ -198,7 +180,6 @@ public final class BoatEngineEvents {
             }
             if (!running) {
                 data.putInt(ROOT + "Power", 0);
-                if (level.getGameTime() % 20 == 0) displayStatus(boat, data);
                 continue;
             }
 
@@ -240,7 +221,6 @@ public final class BoatEngineEvents {
                 data.putInt(ROOT + "Power", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
             }
-            if (level.getGameTime() % 20 == 0) displayStatus(boat, data);
         }
     }
 }

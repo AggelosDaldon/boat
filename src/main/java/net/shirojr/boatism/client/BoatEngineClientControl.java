@@ -65,8 +65,6 @@ public final class BoatEngineClientControl {
         // Local prediction keeps movement and the engine sound responsive.
         state.putInt("Power", newPower);
         EngineSync.CHANNEL.sendToServer(new EngineSync.PowerDelta(Integer.signum(delta)));
-        Minecraft.getInstance().player.displayClientMessage(
-            net.minecraft.network.chat.Component.literal("Power Level: " + newPower), true);
     }
 
     @SubscribeEvent
@@ -103,49 +101,66 @@ public final class BoatEngineClientControl {
             if (!(entity instanceof Boat boat)) continue;
             CompoundTag state = ClientReceiver.get(boat.getId());
             if (state == null || !state.getBoolean("Installed") || !state.getBoolean("Running")) continue;
-            // Smoke is emitted from the highest point of the Blockbench cube
-            // named "smoke particle here": centre x=7.5, top y=11, z=13.5.
-            // Convert model pixels to the same 1.5x stern renderer transform.
-            // Idle power 0 still smokes lightly while the engine is running.
-            if (mc.level.random.nextInt(4) == 0) {
-                double attachmentY = boat.getBbHeight() / 3.0;
-                double attachmentZ = 1.32;
-                if (boat.getVariant() == Boat.Type.BAMBOO) {
-                    attachmentY = boat.getBbHeight() * 0.7;
-                    attachmentZ = 1.2;
-                }
-                double modelX = (7.5 - 8.0) / 16.0 * 1.5;
-                double modelZ = attachmentZ + (13.5 - 8.0) / 16.0 * 1.5;
-                double smokeYaw = Math.toRadians(180.0 - boat.getYRot());
-                double smokeX = boat.getX() + modelX * Math.cos(smokeYaw)
-                    + modelZ * Math.sin(smokeYaw);
-                double smokeZ = boat.getZ() - modelX * Math.sin(smokeYaw)
-                    + modelZ * Math.cos(smokeYaw);
-                double smokeY = boat.getY() + attachmentY + 11.0 / 16.0 * 1.5 + 0.025;
+
+            double attachmentY = boat.getBbHeight() / 3.0;
+            double attachmentZ = 1.32;
+            if (boat.getVariant() == Boat.Type.BAMBOO) {
+                attachmentY = boat.getBbHeight() * 0.7;
+                attachmentZ = 1.2;
+            }
+            double yaw = Math.toRadians(180.0 - boat.getYRot());
+            double cos = Math.cos(yaw), sin = Math.sin(yaw);
+
+            // The highest point comes directly from the element named
+            // "smoke particle here", so future model changes stay aligned.
+            // Smoke is only enabled while the engine is RUNNING, including idle.
+            BoatEngineGeometry.SmokeOutlet outlet = BoatEngineGeometry.get().smokeOutlet();
+            if (outlet != null && mc.level.random.nextInt(3) == 0) {
+                double modelX = (outlet.x() - 8.0) / 16.0 * 1.5;
+                double modelZ = attachmentZ + (outlet.z() - 8.0) / 16.0 * 1.5;
+                double x = boat.getX() + modelX * cos + modelZ * sin;
+                double z = boat.getZ() - modelX * sin + modelZ * cos;
+                double y = boat.getY() + attachmentY + outlet.y() / 16.0 * 1.5 + 0.025;
                 mc.level.addParticle(ParticleTypes.SMOKE,
-                    smokeX + (mc.level.random.nextDouble() - 0.5) * 0.035,
-                    smokeY,
-                    smokeZ + (mc.level.random.nextDouble() - 0.5) * 0.035,
+                    x + (mc.level.random.nextDouble() - 0.5) * 0.035,
+                    y,
+                    z + (mc.level.random.nextDouble() - 0.5) * 0.035,
                     (mc.level.random.nextDouble() - 0.5) * 0.005,
                     0.012 + mc.level.random.nextDouble() * 0.009,
                     (mc.level.random.nextDouble() - 0.5) * 0.005);
             }
-            if (state.getInt("Power") <= 0) continue;
-            if (mc.level.random.nextInt(3) != 0) continue;
 
-            double yaw = Math.toRadians(180.0 - boat.getYRot());
-            double sternX = boat.getX() + Math.sin(yaw) * 1.5;
-            double sternZ = boat.getZ() + Math.cos(yaw) * 1.5;
-            double waterY = boat.getY() - 0.2;
-            mc.level.addParticle(ParticleTypes.BUBBLE,
-                sternX + (mc.level.random.nextDouble() - 0.5) * 0.3,
-                waterY,
-                sternZ + (mc.level.random.nextDouble() - 0.5) * 0.3,
-                0.0, 0.02, 0.0);
+            int power = Mth.clamp(state.getInt("Power"), 0, 9);
+            if (power <= 0 || !boat.isInWaterOrBubble()) continue;
+
+            // Visible prop wash at the lowered propeller group's actual pivot
+            // (8, -4, 6). More throttle means denser bubbles and splashes.
+            double propZ = attachmentZ + (6.0 - 8.0) / 16.0 * 1.5;
+            double propX = boat.getX() + propZ * sin;
+            double propWorldZ = boat.getZ() + propZ * cos;
+            double propY = boat.getY() + attachmentY - 4.0 / 16.0 * 1.5;
+            if (mc.level.random.nextInt(2) == 0) {
+                int bubbles = 1 + Math.min(3, power / 3);
+                for (int i = 0; i < bubbles; i++) {
+                    double dx = (mc.level.random.nextDouble() - 0.5) * 0.28;
+                    double dz = (mc.level.random.nextDouble() - 0.5) * 0.28;
+                    mc.level.addParticle(ParticleTypes.BUBBLE,
+                        propX + dx, propY + (mc.level.random.nextDouble() - 0.5) * 0.12,
+                        propWorldZ + dz,
+                        dx * 0.03, 0.035 + power * 0.004, dz * 0.03);
+                    if (mc.level.random.nextInt(3) == 0) {
+                        mc.level.addParticle(ParticleTypes.BUBBLE_POP,
+                            propX + dx, boat.getY() + 0.08, propWorldZ + dz,
+                            0, 0.012, 0);
+                    }
+                }
+            }
             if (mc.level.random.nextInt(4) == 0) {
                 mc.level.addParticle(ParticleTypes.SPLASH,
-                    sternX, boat.getY() + 0.1, sternZ,
-                    0.0, 0.03, 0.0);
+                    propX + (mc.level.random.nextDouble() - 0.5) * 0.35,
+                    boat.getY() + 0.09,
+                    propWorldZ + (mc.level.random.nextDouble() - 0.5) * 0.35,
+                    0, 0.045 + power * 0.006, 0);
             }
         }
     }

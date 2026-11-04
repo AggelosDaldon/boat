@@ -34,11 +34,19 @@ public final class BoatEngineGeometry {
     private static ResourceManager loadedManager;
     private static BoatEngineGeometry loaded;
     private final List<Quad> quads;
+    private final SmokeOutlet smokeOutlet;
 
     private record Quad(float[][] positions, float[][] uv, float[] normal, boolean propeller) {}
+    public record SmokeOutlet(float x, float y, float z) {}
 
-    private BoatEngineGeometry(List<Quad> quads) {
+    private BoatEngineGeometry(List<Quad> quads, SmokeOutlet smokeOutlet) {
         this.quads = quads;
+        this.smokeOutlet = smokeOutlet;
+    }
+
+    /** Exact highest point of the element named 'smoke particle here'. */
+    public SmokeOutlet smokeOutlet() {
+        return smokeOutlet;
     }
 
     public static BoatEngineGeometry get() {
@@ -85,6 +93,7 @@ public final class BoatEngineGeometry {
             String[] directions = {"north", "south", "west", "east", "up", "down"};
             float[][] normals = {{0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0},
                 {0, 1, 0}, {0, -1, 0}};
+            SmokeOutlet outlet = null;
 
             for (int elementIndex = 0; elementIndex < elementList.size(); elementIndex++) {
                 JsonObject element = elementList.get(elementIndex).getAsJsonObject();
@@ -107,6 +116,13 @@ public final class BoatEngineGeometry {
                 };
                 JsonObject rotation = element.has("rotation")
                     ? element.getAsJsonObject("rotation") : null;
+                if (element.has("name")
+                    && "smoke particle here".equals(element.get("name").getAsString())) {
+                    float[] highest = rotateElement(new float[] {
+                        (x0 + x1) / 2f, y1, (z0 + z1) / 2f
+                    }, rotation);
+                    outlet = new SmokeOutlet(highest[0], highest[1], highest[2]);
+                }
                 JsonObject texFaces = element.getAsJsonObject("faces");
                 for (int faceId = 0; faceId < directions.length; faceId++) {
                     JsonObject face = texFaces.getAsJsonObject(directions[faceId]);
@@ -131,7 +147,7 @@ public final class BoatEngineGeometry {
                         propellerIndices.contains(elementIndex)));
                 }
             }
-            return new BoatEngineGeometry(faces);
+            return new BoatEngineGeometry(faces, outlet);
         } catch (IOException e) {
             throw new IllegalStateException("Could not load custom Boatism engine model: " + JSON_MODEL, e);
         }
