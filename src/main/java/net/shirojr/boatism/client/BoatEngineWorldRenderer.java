@@ -53,12 +53,14 @@ public final class BoatEngineWorldRenderer {
             pose.translate(x, y, z);
             pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f - Mth.rotLerp(partial, boat.yRotO, boat.getYRot())));
             // Mirror the original Boatism passenger attachment offset: the
-            // engine hangs off the rear, rather than rendering at boat center.
+            // engine sits at the stern, rather than rendering at boat center.
+            // The world-space renderer uses the opposite local-Z sign from
+            // the original passenger attachment transformation.
             float attachmentY = boat.getBbHeight() / 3.0f;
-            float attachmentZ = -1.32f;
+            float attachmentZ = 1.32f;
             if (boat.getVariant() == Boat.Type.BAMBOO) {
                 attachmentY = boat.getBbHeight() * 0.7f;
-                attachmentZ = -1.2f;
+                attachmentZ = 1.2f;
             }
             pose.translate(0.0, attachmentY, attachmentZ);
             // Match the original entity renderer's 1.5x model scale.
