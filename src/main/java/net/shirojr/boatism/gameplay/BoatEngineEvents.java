@@ -33,8 +33,6 @@ public final class BoatEngineEvents {
     private static final int BASE_FUEL_CAPACITY = 1000;
     private static final int CANISTER_FUEL_BONUS = 5500;
     private static final float FUEL_BUCKET_CONTENTS = 3000f;
-    private static final float BASE_OVERHEAT_LIMIT = 1000f;
-    private static final float EXHAUST_OVERHEAT_BONUS = 2000f;
     private BoatEngineEvents() {}
 
     private static boolean hasCanister(CompoundTag data) {
@@ -43,10 +41,6 @@ public final class BoatEngineEvents {
 
     public static int fuelCapacity(CompoundTag data) {
         return BASE_FUEL_CAPACITY + (hasCanister(data) ? CANISTER_FUEL_BONUS : 0);
-    }
-
-    private static float overheatLimit(CompoundTag data) {
-        return BASE_OVERHEAT_LIMIT + (data.getBoolean(ROOT + "Exhaust") ? EXHAUST_OVERHEAT_BONUS : 0);
     }
 
     private static void levelSound(Boat boat, SoundEvent sound) {
@@ -105,7 +99,6 @@ public final class BoatEngineEvents {
                 data.putBoolean(ROOT + "Enabled", false);
                 data.putBoolean(ROOT + "Running", false);
                 data.putFloat(ROOT + "Fuel", 0f);
-                data.putFloat(ROOT + "Heat", 0f);
                 data.putInt(ROOT + "Power", 0);
                 levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
                 if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
@@ -147,32 +140,19 @@ public final class BoatEngineEvents {
         }
 
         if (!data.getBoolean(ROOT + "Installed")) return;
-        String upgrade = null;
-        if (held.is(BoatismItems.COMPONENT_EXHAUST.get())) upgrade = "Exhaust";
-        else if (held.is(BoatismItems.COMPONENT_CANISTER.get())) upgrade = "Canister";
-        else if (held.is(BoatismItems.COMPONENT_CANISTER_STRAPPED.get())) upgrade = "StrappedCanister";
-        else if (held.is(BoatismItems.COMPONENT_PLATES.get())) upgrade = "Plates";
-
-        if (upgrade == null) return;
-        boolean isCanister = upgrade.equals("Canister") || upgrade.equals("StrappedCanister");
-        boolean conflict = isCanister && data.getBoolean(ROOT + "Plates")
-            || upgrade.equals("Plates") && hasCanister(data);
-        if (conflict || data.getBoolean(ROOT + upgrade) || isCanister && hasCanister(data)) {
-            if (!boat.level().isClientSide) {
-                event.getEntity().displayClientMessage(Component.literal("This engine component cannot be equipped"), true);
-            }
-        } else if (!boat.level().isClientSide) {
-            data.putBoolean(ROOT + upgrade, true);
-            if (isCanister) {
-                // The original normal canister changes into its strapped
-                // appearance when attached, without an extra fuel bonus.
+        // The only user-installable upgrade is the regular Fuel Canister.
+        // Its strapped version is a render-only installed appearance.
+        if (!held.is(BoatismItems.COMPONENT_CANISTER.get())) return;
+        if (!boat.level().isClientSide) {
+            if (hasCanister(data)) {
+                event.getEntity().displayClientMessage(Component.literal("Fuel Canister already installed"), true);
+            } else {
                 data.putBoolean(ROOT + "Canister", true);
                 data.putBoolean(ROOT + "StrappedCanister", true);
+                levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
+                if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
                 event.getEntity().displayClientMessage(Component.literal("Fuel capacity: " + fuelCapacity(data)), true);
             }
-            levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
-            if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-            event.getEntity().displayClientMessage(Component.literal("Installed " + upgrade), true);
         }
         event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
         event.setCanceled(true);
@@ -185,14 +165,11 @@ public final class BoatEngineEvents {
         int fuelPercent = Math.round(100.0f * data.getFloat(ROOT + "Fuel") / fuelCapacity(data));
         double travelled = Math.hypot(boat.getX() - boat.xOld, boat.getZ() - boat.zOld);
         double blocksPerSecond = Math.round(travelled * 200.0) / 10.0;
-        String upgrades = (data.getBoolean(ROOT + "Exhaust") ? " +Exhaust" : "")
-            + (hasCanister(data) ? " +Canister" : "")
-            + (data.getBoolean(ROOT + "Plates") ? " +Plates" : "");
         Component text = Component.literal("Motor: " + mode
             + " | Power: " + data.getInt(ROOT + "Power") + "/9"
             + " | Fuel: " + fuelPercent + "%"
-            + " | Heat: " + Math.round(data.getFloat(ROOT + "Heat")) + "/" + Math.round(overheatLimit(data))
-            + " | Speed: " + blocksPerSecond + " blocks/s" + upgrades);
+            + " | Speed: " + blocksPerSecond + " blocks/s"
+            + (hasCanister(data) ? " +Canister" : ""));
         for (Entity rider : boat.getPassengers()) {
             if (rider instanceof ServerPlayer player) player.displayClientMessage(text, true);
         }
@@ -205,6 +182,10 @@ public final class BoatEngineEvents {
             if (!(entity instanceof Boat boat)) continue;
             CompoundTag data = boat.getPersistentData();
             if (!data.getBoolean(ROOT + "Installed")) continue;
+            // Clean old upgrades and heat data from boats saved with earlier builds.
+            data.remove(ROOT + "Heat");
+            data.remove(ROOT + "Exhaust");
+            data.remove(ROOT + "Plates");
             float fuel = Math.min(data.getFloat(ROOT + "Fuel"), fuelCapacity(data));
             if (fuel != data.getFloat(ROOT + "Fuel")) data.putFloat(ROOT + "Fuel", fuel);
 
@@ -229,27 +210,6 @@ public final class BoatEngineEvents {
             }
             boolean inWater = boat.isInWaterOrBubble()
                 || boat.level().getFluidState(boat.blockPosition().below()).is(FluidTags.WATER);
-
-            // Exhaust increases heat tolerance, NOT top speed.
-            float heat = data.getFloat(ROOT + "Heat");
-            if (power >= 7) heat += 2.0f;
-            else heat = Math.max(0.0f, heat - 1.0f);
-            if (power > 3 && boat.getDeltaMovement().horizontalDistanceSqr() < 0.01) heat += 2.0f;
-            if (!inWater) heat += 4.0f;
-            data.putFloat(ROOT + "Heat", heat);
-            if (heat > overheatLimit(data)) {
-                data.putBoolean(ROOT + "Running", false);
-                data.putBoolean(ROOT + "Enabled", false);
-                data.putInt(ROOT + "Power", 0);
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_HEAT.get());
-                for (Entity rider : boat.getPassengers()) {
-                    if (rider instanceof ServerPlayer player) {
-                        player.displayClientMessage(Component.literal("Engine overheated!"), true);
-                    }
-                }
-                continue;
-            }
 
             // Vanilla simulates player-operated boats client-side. Server
             // thrust here is only for boats without a controlling player.

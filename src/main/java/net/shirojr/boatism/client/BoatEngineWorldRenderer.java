@@ -71,19 +71,11 @@ public final class BoatEngineWorldRenderer {
                 ? (boat.tickCount + partial) * (0.08f + state.getInt("Power") * 0.04f) : 0f;
             root.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), 0xF000F0, OverlayTexture.NO_OVERLAY);
 
-            // The original Fabric engine displays upgrades as FIXED item
-            // models with per-component transforms; mirror those here.
-            if (state.getBoolean("Exhaust")) {
-                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_EXHAUST.get()),
-                    0.82f, 1.4, 180f, 180f, boat.getId());
-            }
+            // The strapped canister is a render-only appearance for the
+            // regular canister installed on the engine.
             if (state.getBoolean("StrappedCanister") || state.getBoolean("Canister")) {
                 drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_CANISTER_STRAPPED.get()),
                     0.48f, 2.3, 90f, 180f, boat.getId());
-            }
-            if (state.getBoolean("Plates")) {
-                drawUpgrade(mc, pose, buffers, new ItemStack(BoatismItems.COMPONENT_PLATES.get()),
-                    0.5f, 2.43, 90f, 180f, boat.getId());
             }
             pose.popPose();
         }

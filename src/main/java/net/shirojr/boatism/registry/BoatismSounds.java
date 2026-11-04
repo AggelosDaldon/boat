@@ -18,7 +18,6 @@ public final class BoatismSounds {
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_POWER_DOWN = SOUNDS.register("boat_engine_power_down", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_power_down")));
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_START = SOUNDS.register("boat_engine_start", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_start")));
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_START_FAIL = SOUNDS.register("boat_engine_start_fail", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_start_fail")));
-    public static final RegistryObject<SoundEvent> BOAT_ENGINE_HEAT = SOUNDS.register("boat_engine_heat", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_heat")));
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_STOP = SOUNDS.register("boat_engine_stop", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_stop")));
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_POUR = SOUNDS.register("boat_engine_pour", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_pour")));
     public static final RegistryObject<SoundEvent> BOAT_ENGINE_EQUIP = SOUNDS.register("boat_engine_equip", () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(Boatism.MOD_ID, "boat_engine_equip")));

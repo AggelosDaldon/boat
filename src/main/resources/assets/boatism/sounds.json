@@ -53,12 +53,6 @@
       "boatism:boat_engine_start_fail"
     ]
   },
-  "boat_engine_heat": {
-    "subtitle": "sound.boatism.boat_engine.heat",
-    "sounds": [
-      "boatism:boat_engine_heat"
-    ]
-  },
   "boat_engine_stop": {
     "subtitle": "sound.boatism.boat_engine.stop",
     "sounds": [
