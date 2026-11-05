@@ -34,6 +34,8 @@ public final class BoatEngineClientControl {
     public static final KeyMapping POWER_DOWN = new KeyMapping(
         "key.boatism.power_level_down", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, "key.boatism.group");
 
+    private static boolean motorClickHeld;
+
     private BoatEngineClientControl() {}
 
     @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -70,7 +72,8 @@ public final class BoatEngineClientControl {
         if (target == null) return;
         // This input fires once per hand. The primary hand sends the request;
         // cancel both so that clicking the motor never mounts the boat.
-        if (event.getHand() == InteractionHand.MAIN_HAND) {
+        if (event.getHand() == InteractionHand.MAIN_HAND && !motorClickHeld) {
+            motorClickHeld = true;
             EngineSync.CHANNEL.sendToServer(new EngineSync.UseMotor(target.getId()));
             event.setSwingHand(true);
         }
@@ -105,6 +108,7 @@ public final class BoatEngineClientControl {
     public static void clientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
+        if (!mc.options.keyUse.isDown()) motorClickHeld = false;
         if (mc.level == null || mc.player == null || mc.isPaused()) return;
 
         if (mc.player.getVehicle() instanceof Boat controlledBoat) {

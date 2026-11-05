@@ -100,6 +100,10 @@ public final class BoatEngineEvents {
             if (held.hasTag() && held.getTag().contains("BucketFuel")) {
                 contents = held.getTag().getFloat("BucketFuel");
             }
+            if (data.getFloat(ROOT + "Fuel") >= fuelCapacity(data) - 0.01f) {
+                player.displayClientMessage(Component.literal("The fuel tank is already full"), true);
+                return;
+            }
             float fuel = Math.min(fuelCapacity(data), data.getFloat(ROOT + "Fuel") + contents);
             data.putFloat(ROOT + "Fuel", fuel);
             data.putBoolean(ROOT + "LowFuelWarned", false);
