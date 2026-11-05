@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class EngineSync {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
         new ResourceLocation(Boatism.MOD_ID, "engine_sync"), () -> VERSION, VERSION::equals, VERSION::equals);
     private static final String ROOT = "BoatismForgeEngine";
@@ -33,6 +33,8 @@ public final class EngineSync {
             .encoder(State::encode).decoder(State::decode).consumerMainThread(State::handle).add();
         CHANNEL.messageBuilder(PowerDelta.class, 1, NetworkDirection.PLAY_TO_SERVER)
             .encoder(PowerDelta::encode).decoder(PowerDelta::decode).consumerMainThread(PowerDelta::handle).add();
+        CHANNEL.messageBuilder(UseMotor.class, 2, NetworkDirection.PLAY_TO_SERVER)
+            .encoder(UseMotor::encode).decoder(UseMotor::decode).consumerMainThread(UseMotor::handle).add();
     }
 
     public record State(int id, CompoundTag data) {
@@ -58,6 +60,20 @@ public final class EngineSync {
                 if (sender != null && sender.getVehicle() instanceof Boat boat
                     && boat.getControllingPassenger() == sender) {
                     BoatEngineEvents.adjustPowerLevel(boat, sender, packet.delta());
+                }
+            });
+            context.get().setPacketHandled(true);
+        }
+    }
+
+    public record UseMotor(int boatId) {
+        static void encode(UseMotor packet, FriendlyByteBuf buf) { buf.writeVarInt(packet.boatId); }
+        static UseMotor decode(FriendlyByteBuf buf) { return new UseMotor(buf.readVarInt()); }
+        static void handle(UseMotor packet, Supplier<NetworkEvent.Context> context) {
+            ServerPlayer sender = context.get().getSender();
+            context.get().enqueueWork(() -> {
+                if (sender != null && sender.level().getEntity(packet.boatId()) instanceof Boat boat) {
+                    BoatEngineEvents.useEngine(boat, sender);
                 }
             });
             context.get().setPacketHandled(true);

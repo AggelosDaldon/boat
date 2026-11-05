@@ -61,7 +61,7 @@ public final class BoatEngineWorldRenderer {
             pose.scale(1.5f, 1.5f, 1.5f);
             // Keep the propeller turning at neutral, with a slow idle RPM.
             float propellerAngle = state.getBoolean("Running")
-                ? (boat.tickCount + partial) * (0.12f + state.getInt("Power") * 0.055f) : 0f;
+                ? (boat.tickCount + partial) * (0.12f + state.getInt("Power") * 0.05f) : 0f;
             BoatEngineGeometry.get().render(pose,
                 buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE)), propellerAngle);
 

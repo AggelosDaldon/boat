@@ -95,7 +95,7 @@ public final class BoatEngineLoopSound {
             this.x = boat.getX();
             this.y = boat.getY();
             this.z = boat.getZ();
-            int power = state == null ? 0 : Mth.clamp(state.getInt("Power"), 0, 9);
+            int power = state == null ? 0 : Mth.clamp(state.getInt("Power"), 0, 10);
             // Fade in/out, then dynamically track load and boat speed.
             float speed = Mth.clamp((float) boat.getDeltaMovement().horizontalDistance(), 0f, 0.9f);
             this.volume = fade * Mth.clamp(0.45f + speed * 0.35f, 0.0f, 0.8f);

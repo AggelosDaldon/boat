@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
 import net.shirojr.boatism.network.ClientReceiver;
 
-/** Small always-on gear/fuel HUD beside the hotbar while running. */
+/** Small always-on throttle/fuel HUD beside the hotbar while running. */
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE,
     value = Dist.CLIENT)
 public final class BoatEngineHud {
@@ -33,11 +33,11 @@ public final class BoatEngineHud {
         CompoundTag data = ClientReceiver.get(boat.getId());
         if (data == null || !data.getBoolean("Installed") || !data.getBoolean("Running")) return;
 
-        int gear = Mth.clamp(data.getInt("Power"), 0, 9);
+        int throttle = Mth.clamp(data.getInt("Power"), 0, 10);
         int capacity = 3000;
         float fuel = Mth.clamp(data.getFloat("Fuel"), 0f, capacity);
         float fuelFraction = fuel / capacity;
-        int gearColor = gearTint(gear);
+        int throttleColor = throttleTint(throttle);
         int fuelColor = fuelFraction > 0.4f ? 0xFF87CF9E
             : fuelFraction > 0.17f ? 0xFFFFCA7A : 0xFFFF7572;
 
@@ -48,12 +48,12 @@ public final class BoatEngineHud {
         int left = Math.min(gui.guiWidth() - WIDTH - 3, requestedLeft);
         int top = left == requestedLeft ? gui.guiHeight() - 35 : gui.guiHeight() - 71;
         gui.fill(left, top, left + WIDTH, top + HEIGHT, 0xCB151D22);
-        gui.fill(left, top, left + 2, top + HEIGHT, gearColor);
+        gui.fill(left, top, left + 2, top + HEIGHT, throttleColor);
 
-        gui.drawString(mc.font, "GEAR", left + 8, top + 5, 0xFFBCC9CC, false);
-        String gearText = Integer.toString(gear);
-        gui.drawString(mc.font, gearText,
-            left + WIDTH - 8 - mc.font.width(gearText), top + 5, gearColor, false);
+        gui.drawString(mc.font, "THROTTLE", left + 8, top + 5, 0xFFBCC9CC, false);
+        String throttleText = Integer.toString(throttle);
+        gui.drawString(mc.font, throttleText,
+            left + WIDTH - 8 - mc.font.width(throttleText), top + 5, throttleColor, false);
 
         gui.drawString(mc.font, "FUEL", left + 8, top + 16, 0xFFBCC9CC, false);
         String fuelText = (int) Math.ceil(fuel) + "/" + capacity;
@@ -65,8 +65,8 @@ public final class BoatEngineHud {
             left + 6 + Math.round((WIDTH - 12) * fuelFraction), top + HEIGHT - 2, fuelColor);
     }
 
-    private static int gearTint(int gear) {
-        float ratio = gear / 9f;
+    private static int throttleTint(int throttle) {
+        float ratio = throttle / 10f;
         if (ratio < 0.5f) return blend(0xFF77D7D1, 0xFFF6D074, ratio * 2f);
         return blend(0xFFF6D074, 0xFFFF746C, (ratio - 0.5f) * 2f);
     }

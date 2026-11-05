@@ -5,6 +5,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -16,12 +17,14 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.shirojr.boatism.Boatism;
+import net.shirojr.boatism.gameplay.BoatEngineTarget;
+import net.shirojr.boatism.registry.BoatismItems;
 import net.shirojr.boatism.network.ClientReceiver;
 import net.shirojr.boatism.network.EngineSync;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Fabric Boatism's throttle is persistent: scrolling changes power 0-9,
+ * Fabric Boatism's throttle is persistent: scrolling changes power 0-10,
  * and releasing W does not reset it. Level 0 is neutral/idle.
  */
 @Mod.EventBusSubscriber(modid = Boatism.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -43,6 +46,38 @@ public final class BoatEngineClientControl {
     }
 
     @SubscribeEvent
+    public static void motorRightClick(InputEvent.InteractionKeyMappingTriggered event) {
+        if (!event.isUseItem()) return;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null || mc.screen != null) return;
+        var hand = mc.player.getMainHandItem();
+        if (!hand.isEmpty() && !hand.is(BoatismItems.FUEL_BUCKET.get())) return;
+
+        Boat target = null;
+        double closest = Double.POSITIVE_INFINITY;
+        Vec3 eyes = mc.player.getEyePosition();
+        Vec3 look = mc.player.getViewVector(1f);
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!(entity instanceof Boat boat)) continue;
+            CompoundTag state = ClientReceiver.get(boat.getId());
+            if (state == null || !state.getBoolean("Installed")) continue;
+            double distance = BoatEngineTarget.hitDistance(boat, eyes, look, 5.5);
+            if (distance < closest) {
+                closest = distance;
+                target = boat;
+            }
+        }
+        if (target == null) return;
+        // This input fires once per hand. The primary hand sends the request;
+        // cancel both so that clicking the motor never mounts the boat.
+        if (event.getHand() == InteractionHand.MAIN_HAND) {
+            EngineSync.CHANNEL.sendToServer(new EngineSync.UseMotor(target.getId()));
+            event.setSwingHand(true);
+        }
+        event.setCanceled(true);
+    }
+
+    @SubscribeEvent
     public static void scroll(InputEvent.MouseScrollingEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.screen != null || !(mc.player.getVehicle() instanceof Boat boat)) return;
@@ -57,7 +92,7 @@ public final class BoatEngineClientControl {
     private static void changePower(Boat boat, int delta) {
         CompoundTag state = ClientReceiver.get(boat.getId());
         if (state == null || !state.getBoolean("Running")) return;
-        int limit = state.getFloat("Fuel") < 600f ? 3 : 9;
+        int limit = state.getFloat("Fuel") < 600f ? 3 : 10;
         int oldPower = state.getInt("Power");
         int newPower = Mth.clamp(oldPower + Integer.signum(delta), 0, limit);
         if (newPower == oldPower) return;
@@ -78,7 +113,7 @@ public final class BoatEngineClientControl {
 
             CompoundTag state = ClientReceiver.get(controlledBoat.getId());
             if (state != null && state.getBoolean("Running") && state.getFloat("Fuel") > 0) {
-                int power = Mth.clamp(state.getInt("Power"), 0, 9);
+                int power = Mth.clamp(state.getInt("Power"), 0, 10);
                 if (power > 0) {
                     Vec3 movement = controlledBoat.getDeltaMovement();
                     Vec3 heading = controlledBoat.getLookAngle();
@@ -129,7 +164,7 @@ public final class BoatEngineClientControl {
                     (mc.level.random.nextDouble() - 0.5) * 0.005);
             }
 
-            int power = Mth.clamp(state.getInt("Power"), 0, 9);
+            int power = Mth.clamp(state.getInt("Power"), 0, 10);
             if (power <= 0 || !boat.isInWaterOrBubble()) continue;
 
             // Visible prop wash at the lowered propeller group's actual pivot

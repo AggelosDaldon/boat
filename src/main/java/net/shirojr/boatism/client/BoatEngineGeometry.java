@@ -175,8 +175,10 @@ public final class BoatEngineGeometry {
     public void render(PoseStack pose, VertexConsumer consumer, float propellerAngle) {
         Matrix4f transform = pose.last().pose();
         Matrix3f normals = pose.last().normal();
-        float spinSin = (float) Math.sin(propellerAngle);
-        float spinCos = (float) Math.cos(propellerAngle);
+        // Both propeller blades are rotated 180 degrees from the uploaded rest pose.
+        float bladeAngle = propellerAngle + (float) Math.PI;
+        float spinSin = (float) Math.sin(bladeAngle);
+        float spinCos = (float) Math.cos(bladeAngle);
 
         for (Quad quad : quads) {
             for (int i = 0; i < 4; i++) {

@@ -52,7 +52,7 @@ public final class BoatEngineEvents {
         CompoundTag data = boat.getPersistentData();
         if (!data.getBoolean(ROOT + "Installed") || !data.getBoolean(ROOT + "Running")) return;
         int previous = data.getInt(ROOT + "Power");
-        int max = data.getFloat(ROOT + "Fuel") < fuelCapacity(data) * 0.2f ? 3 : 9;
+        int max = data.getFloat(ROOT + "Fuel") < fuelCapacity(data) * 0.2f ? 3 : 10;
         int requested = Mth.clamp(previous + Integer.signum(delta), 0, max);
         if (requested == previous) return;
         data.putInt(ROOT + "Power", requested);
@@ -60,84 +60,74 @@ public final class BoatEngineEvents {
             ? BoatismSounds.BOAT_ENGINE_POWER_UP.get() : BoatismSounds.BOAT_ENGINE_POWER_DOWN.get());
     }
 
+    /** Clicking the boat hull installs an engine; all later interactions target the motor. */
     @SubscribeEvent
     public static void interact(PlayerInteractEvent.EntityInteract event) {
         if (!(event.getTarget() instanceof Boat boat)) return;
         if (event.getHand() != InteractionHand.MAIN_HAND) return;
-        ItemStack held = event.getEntity().getItemInHand(event.getHand());
+        ItemStack held = event.getEntity().getMainHandItem();
         CompoundTag data = boat.getPersistentData();
+        if (!held.is(BoatismItems.BASE_ENGINE.get()) || data.getBoolean(ROOT + "Installed")) return;
+        if (!boat.level().isClientSide) {
+            data.putBoolean(ROOT + "Installed", true);
+            data.putBoolean(ROOT + "Enabled", false);
+            data.putBoolean(ROOT + "Running", false);
+            data.putFloat(ROOT + "Fuel", 0f);
+            data.putInt(ROOT + "Power", 0);
+            levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
+            if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
+            event.getEntity().displayClientMessage(
+                Component.literal("Engine installed! Right-click the motor to refuel or start."), true);
+        }
+        event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
+        event.setCanceled(true);
+    }
 
-        if (held.isEmpty()) {
-            // This bridge uses the hull for ignition until the original
-            // interactable BoatEngineEntity hitbox has been ported.
-            if (!event.getEntity().isShiftKeyDown() || !data.getBoolean(ROOT + "Installed")) return;
-            if (!boat.level().isClientSide) {
-                boolean enabled = !data.getBoolean(ROOT + "Enabled");
-                if (enabled && data.getFloat(ROOT + "Fuel") < 5.0f) {
-                    levelSound(boat, BoatismSounds.BOAT_ENGINE_START_FAIL.get());
-                    event.getEntity().displayClientMessage(Component.literal("Add fuel before starting the engine"), true);
-                } else {
-                    data.putBoolean(ROOT + "Enabled", enabled);
-                    if (!enabled) {
-                        data.putBoolean(ROOT + "Running", false);
-                        data.putInt(ROOT + "Power", 0);
-                        levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
-                    }
-                    event.getEntity().displayClientMessage(
-                        Component.literal(enabled ? "Boat engine switched on (power 0)" : "Boat engine switched off"), true);
-                }
+    /** Server-validated right-click on the outboard's own target volume. */
+    public static void useEngine(Boat boat, ServerPlayer player) {
+        CompoundTag data = boat.getPersistentData();
+        if (!data.getBoolean(ROOT + "Installed")) return;
+        if (Double.isInfinite(BoatEngineTarget.hitDistance(
+            boat, player.getEyePosition(), player.getViewVector(1f), 5.5))) return;
+
+        ItemStack held = player.getMainHandItem();
+        if (held.is(BoatismItems.FUEL_BUCKET.get())) {
+            if (data.getBoolean(ROOT + "Running")) {
+                player.displayClientMessage(Component.literal("Stop the engine before refueling"), true);
+                return;
             }
-            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-            event.setCanceled(true);
+            float contents = FUEL_BUCKET_CONTENTS;
+            if (held.hasTag() && held.getTag().contains("BucketFuel")) {
+                contents = held.getTag().getFloat("BucketFuel");
+            }
+            float fuel = Math.min(fuelCapacity(data), data.getFloat(ROOT + "Fuel") + contents);
+            data.putFloat(ROOT + "Fuel", fuel);
+            data.putBoolean(ROOT + "LowFuelWarned", false);
+            levelSound(boat, BoatismSounds.BOAT_ENGINE_POUR.get());
+            if (!player.getAbilities().instabuild) {
+                held.shrink(1);
+                ItemStack emptyBucket = new ItemStack(Items.BUCKET);
+                if (!player.getInventory().add(emptyBucket)) player.drop(emptyBucket, false);
+            }
+            player.displayClientMessage(
+                Component.literal("Fuel: " + (int) fuel + "/" + fuelCapacity(data)), true);
             return;
         }
-
-        if (held.is(BoatismItems.BASE_ENGINE.get()) && !data.getBoolean(ROOT + "Installed")) {
-            if (!boat.level().isClientSide) {
-                data.putBoolean(ROOT + "Installed", true);
-                data.putBoolean(ROOT + "Enabled", false);
-                data.putBoolean(ROOT + "Running", false);
-                data.putFloat(ROOT + "Fuel", 0f);
-                data.putInt(ROOT + "Power", 0);
-                levelSound(boat, BoatismSounds.BOAT_ENGINE_EQUIP.get());
-                if (!event.getEntity().getAbilities().instabuild) held.shrink(1);
-                event.getEntity().displayClientMessage(
-                    Component.literal("Engine installed! Fuel it and sneak-right-click the boat to start."), true);
-            }
-            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-            event.setCanceled(true);
+        if (!held.isEmpty()) return;
+        boolean enabled = !data.getBoolean(ROOT + "Enabled");
+        if (enabled && data.getFloat(ROOT + "Fuel") < 5.0f) {
+            levelSound(boat, BoatismSounds.BOAT_ENGINE_START_FAIL.get());
+            player.displayClientMessage(Component.literal("Add fuel before starting the engine"), true);
             return;
         }
-
-        if (held.is(BoatismItems.FUEL_BUCKET.get()) && data.getBoolean(ROOT + "Installed")) {
-            if (!boat.level().isClientSide) {
-                if (data.getBoolean(ROOT + "Running")) {
-                    event.getEntity().displayClientMessage(Component.literal("Stop the engine before refueling"), true);
-                } else {
-                    float contents = FUEL_BUCKET_CONTENTS;
-                    if (held.hasTag() && held.getTag().contains("BucketFuel")) {
-                        contents = held.getTag().getFloat("BucketFuel");
-                    }
-                    float fuel = Math.min(fuelCapacity(data), data.getFloat(ROOT + "Fuel") + contents);
-                    data.putFloat(ROOT + "Fuel", fuel);
-                    data.putBoolean(ROOT + "LowFuelWarned", false);
-                    levelSound(boat, BoatismSounds.BOAT_ENGINE_POUR.get());
-                    if (!event.getEntity().getAbilities().instabuild) {
-                        held.shrink(1);
-                        ItemStack emptyBucket = new ItemStack(Items.BUCKET);
-                        if (!event.getEntity().getInventory().add(emptyBucket)) {
-                            event.getEntity().drop(emptyBucket, false);
-                        }
-                    }
-                    event.getEntity().displayClientMessage(Component.literal("Fuel: " + (int) fuel
-                        + "/" + fuelCapacity(data)), true);
-                }
-            }
-            event.setCancellationResult(InteractionResult.sidedSuccess(boat.level().isClientSide));
-            event.setCanceled(true);
-            return;
+        data.putBoolean(ROOT + "Enabled", enabled);
+        if (!enabled) {
+            data.putBoolean(ROOT + "Running", false);
+            data.putInt(ROOT + "Power", 0);
+            levelSound(boat, BoatismSounds.BOAT_ENGINE_STOP.get());
         }
-
+        player.displayClientMessage(
+            Component.literal(enabled ? "Engine switched on (throttle 0)" : "Engine switched off"), true);
     }
 
     @SubscribeEvent
@@ -170,7 +160,7 @@ public final class BoatEngineEvents {
             }
 
             int power = data.getInt(ROOT + "Power");
-            int maxPower = fuel < fuelCapacity(data) * 0.2f ? 3 : 9;
+            int maxPower = fuel < fuelCapacity(data) * 0.2f ? 3 : 10;
             if (power > maxPower) {
                 power = maxPower;
                 data.putInt(ROOT + "Power", power);
@@ -201,7 +191,9 @@ public final class BoatEngineEvents {
             double blocks = previousPosition == null ? 0.0
                 : Math.hypot(currentPosition.x - previousPosition.x,
                     currentPosition.z - previousPosition.z);
-            float cost = blocks <= 8.0 ? (float) blocks * FUEL_PER_BLOCK : 0f;
+            // Idle throttle 0 consumes nothing; throttle 10 lasts ~5,000 blocks per bucket.
+            float throttle = power / 10f;
+            float cost = blocks <= 8.0 ? (float) blocks * FUEL_PER_BLOCK * throttle : 0f;
             float remaining = Math.max(0.0f, fuel - cost);
             data.putFloat(ROOT + "Fuel", remaining);
             if (remaining <= fuelCapacity(data) * 0.2f && !data.getBoolean(ROOT + "LowFuelWarned")) {
