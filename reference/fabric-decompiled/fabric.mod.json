@@ -1,0 +1,47 @@
+{
+	"schemaVersion": 1,
+	"id": "boatism",
+	"version": "0.1.1",
+	"name": "Boatism",
+	"description": "A Fabric mod created for the ModFest 1.20 event, which adds boat engines and other boat utility!",
+	"authors": [
+		"Ideas - ShiroJR",
+		"Ideas - Globox1997",
+		"Ideas - JoeMama",
+		"Ideas - Apfelrunder",
+		"Dev - ShiroJR",
+		"Dev - Globox1997",
+		"Art - ShiroJR"
+	],
+	"contact": {
+		"homepage": "https://github.com/JR1811",
+		"sources": "https://github.com/JR1811/Boatism"
+	},
+	"license": "MIT",
+	"icon": "assets/boatism/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"net.shirojr.boatism.Boatism"
+		],
+		"client": [
+			"net.shirojr.boatism.BoatismClient"
+		],
+		"fabric-datagen": [
+			"net.shirojr.boatism.BoatismDataGenerator"
+		],
+		"modmenu": [
+			"net.shirojr.boatism.config.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"boatism.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.15.1",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*",
+		"cloth-config2": ">=13.0.114"
+	}
+}
